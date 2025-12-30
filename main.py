@@ -113,5 +113,7 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\nBot dihentikan oleh user")
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print(f"\nError: {e}")
         sys.exit(1)

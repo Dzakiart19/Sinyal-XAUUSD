@@ -175,9 +175,10 @@ class DerivWebSocketClient:
         """Subscribe to candle data"""
         # interval should be granularity in seconds as string/int
         subscribe_msg = {
-            "ohlc": self.symbol,
+            "ticks": self.symbol,
             "subscribe": 1,
-            "granularity": int(interval)
+            "granularity": int(interval),
+            "style": "candles"
         }
         await self._send(subscribe_msg)
         logger.info(f"Subscribed to {interval}s candles for {self.symbol}")

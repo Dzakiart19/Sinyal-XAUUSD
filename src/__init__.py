@@ -1,0 +1,1 @@
+# XAUUSD Scalping Signal Bot Package

@@ -1,0 +1,27 @@
+[Unit]
+Description=XAUUSD Scalping Signal Bot
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/xauusd_bot
+Environment="PATH=/home/ubuntu/xauusd_bot/venv/bin"
+Environment="PYTHONPATH=/home/ubuntu/xauusd_bot"
+ExecStart=/home/ubuntu/xauusd_bot/venv/bin/python main.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=xauusd_bot
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/home/ubuntu/xauusd_bot/data
+ReadWritePaths=/home/ubuntu/xauusd_bot/logs
+
+[Install]
+WantedBy=multi-user.target

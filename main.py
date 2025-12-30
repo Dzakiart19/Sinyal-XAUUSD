@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
 XAUUSD Scalping Signal Bot
-Bot Telegram untuk sinyal trading XAUUSD dengan strategi scalping
 """
 
 import asyncio
@@ -9,6 +8,7 @@ import logging
 import os
 import signal
 import sys
+import traceback
 from typing import Optional
 
 # Add src directory to path
@@ -36,7 +36,7 @@ class BotRunner:
     
     def __init__(self):
         self.bot: Optional[XAUUSDBot] = None
-        self.shutdown_event = None # Will be initialized in start()
+        self.shutdown_event = None
         
     async def start(self):
         """Start the bot"""
@@ -61,6 +61,7 @@ class BotRunner:
             
         except Exception as e:
             logger.error(f"Error starting bot: {e}")
+            logger.error(traceback.format_exc())
             raise
             
     async def stop(self):
@@ -80,7 +81,7 @@ class BotRunner:
         if self.shutdown_event:
             asyncio.create_task(self.stop())
         
-async def main():
+async def main_async():
     """Main entry point"""
     runner = BotRunner()
     
@@ -91,7 +92,8 @@ async def main():
     try:
         await runner.start()
     except Exception as e:
-        logger.error(f"Fatal error: {e}")
+        logger.error(f"Fatal error in main loop: {e}")
+        logger.error(traceback.format_exc())
         sys.exit(1)
         
 if __name__ == "__main__":
@@ -108,12 +110,10 @@ if __name__ == "__main__":
         
     # Run the bot
     try:
-        import asyncio
-        asyncio.run(main())
+        asyncio.run(main_async())
     except KeyboardInterrupt:
         print("\nBot dihentikan oleh user")
     except Exception as e:
-        import traceback
         traceback.print_exc()
-        print(f"\nError: {e}")
+        print(f"\nFatal error: {e}")
         sys.exit(1)

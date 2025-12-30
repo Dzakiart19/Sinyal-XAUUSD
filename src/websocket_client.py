@@ -41,6 +41,10 @@ class DerivWebSocketClient:
             # Fetch historical candles
             await self.fetch_candle_history()
             
+            # Subscribe to live candles
+            await self.subscribe_candles('60')  # M1
+            await self.subscribe_candles('300') # M5
+            
         except Exception as e:
             logger.error(f"Failed to connect: {e}")
             self.is_connected = False
@@ -103,17 +107,37 @@ class DerivWebSocketClient:
                     'close': float(ohlc['close']),
                     'epoch': ohlc['epoch'],
                     'datetime': datetime.fromtimestamp(ohlc['epoch']),
-                    'interval': ohlc['interval']
+                    'interval': 'M1' if int(ohlc['granularity']) == 60 else 'M5'
                 }
                 
                 # Update candle data
-                interval = ohlc['interval']
+                interval = candle['interval']
                 if interval in self.candle_data:
                     self._update_candle(interval, candle)
                     
                     # Trigger callback for candle updates
                     if 'candle_update' in self.callbacks:
                         await self.callbacks['candle_update'](interval, candle)
+
+            elif 'candles' in data:
+                # Handle historical data response
+                echo = data.get('echo_req', {})
+                interval_secs = echo.get('granularity')
+                interval = 'M1' if interval_secs == 60 else 'M5'
+                
+                for c in data['candles']:
+                    candle = {
+                        'open': float(c['open']),
+                        'high': float(c['high']),
+                        'low': float(c['low']),
+                        'close': float(c['close']),
+                        'epoch': c['epoch'],
+                        'datetime': datetime.fromtimestamp(c['epoch']),
+                        'interval': interval
+                    }
+                    self._update_candle(interval, candle)
+                
+                logger.info(f"Loaded {len(data['candles'])} historical candles for {interval}")
                         
             elif 'error' in data:
                 logger.error(f"Deriv API Error: {data['error']}")
@@ -149,13 +173,14 @@ class DerivWebSocketClient:
         
     async def subscribe_candles(self, interval: str):
         """Subscribe to candle data"""
+        # interval should be granularity in seconds as string/int
         subscribe_msg = {
-            "candles": self.symbol,
+            "ohlc": self.symbol,
             "subscribe": 1,
-            "granularity": interval
+            "granularity": int(interval)
         }
         await self._send(subscribe_msg)
-        logger.info(f"Subscribed to {interval} candles for {self.symbol}")
+        logger.info(f"Subscribed to {interval}s candles for {self.symbol}")
         
     async def fetch_candle_history(self):
         """Fetch historical candle data"""
@@ -167,21 +192,21 @@ class DerivWebSocketClient:
             await self._fetch_candles('M5', Config.M5_CANDLE_COUNT)
             
             self.history_fetched = True
-            logger.info("Historical candle data fetched successfully")
+            logger.info("Historical candle data fetch requests sent")
             
         except Exception as e:
             logger.error(f"Error fetching candle history: {e}")
             
     async def _fetch_candles(self, interval: str, count: int):
         """Fetch candles for specific interval"""
-        end_time = int(datetime.now().timestamp())
-        start_time = end_time - (count * 60 if interval == 'M1' else count * 300)
+        granularity = 60 if interval == 'M1' else 300
         
         request_msg = {
-            "candles": self.symbol,
-            "granularity": interval,
-            "start": start_time,
-            "end": end_time,
+            "ticks_history": self.symbol,
+            "adjust_start_time": 1,
+            "count": count,
+            "end": "latest",
+            "granularity": granularity,
             "style": "candles"
         }
         

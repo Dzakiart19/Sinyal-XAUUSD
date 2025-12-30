@@ -17,6 +17,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 from config.config import Config
 from src.telegram_bot import XAUUSDBot
 
+# Ensure logs directory exists
+os.makedirs('logs', exist_ok=True)
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -33,13 +36,16 @@ class BotRunner:
     
     def __init__(self):
         self.bot: Optional[XAUUSDBot] = None
-        self.shutdown_event = asyncio.Event()
+        self.shutdown_event = None # Will be initialized in start()
         
     async def start(self):
         """Start the bot"""
         try:
             # Initialize configuration
             Config.init_directories()
+            
+            # Initialize shutdown event
+            self.shutdown_event = asyncio.Event()
             
             # Create bot instance
             self.bot = XAUUSDBot()
@@ -64,13 +70,15 @@ class BotRunner:
         if self.bot:
             await self.bot.stop()
             
-        self.shutdown_event.set()
+        if self.shutdown_event:
+            self.shutdown_event.set()
         logger.info("Bot stopped successfully")
         
     def handle_signal(self, signum, frame):
         """Handle shutdown signals"""
         logger.info(f"Received signal {signum}")
-        asyncio.create_task(self.stop())
+        if self.shutdown_event:
+            asyncio.create_task(self.stop())
         
 async def main():
     """Main entry point"""
@@ -88,18 +96,19 @@ async def main():
         
 if __name__ == "__main__":
     # Check if bot token is configured
-    if not os.getenv('TELEGRAM_BOT_TOKEN') or os.getenv('TELEGRAM_BOT_TOKEN') == 'YOUR_TELEGRAM_BOT_TOKEN_HERE':
+    token = os.getenv('TELEGRAM_BOT_TOKEN')
+    if not token or token == 'YOUR_TELEGRAM_BOT_TOKEN_HERE':
         print("❌ ERROR: Telegram Bot Token belum dikonfigurasi!")
         print("\nSilakan lakukan langkah berikut:")
         print("1. Buat bot di @BotFather di Telegram")
         print("2. Salin token bot Anda")
-        print("3. Edit file .env dan isi TELEGRAM_BOT_TOKEN dengan token Anda")
+        print("3. Gunakan tab Secrets di Replit untuk menyimpan TELEGRAM_BOT_TOKEN")
         print("4. Jalankan bot lagi")
         sys.exit(1)
         
     # Run the bot
     try:
-        # Run the bot
+        import asyncio
         asyncio.run(main())
     except KeyboardInterrupt:
         print("\nBot dihentikan oleh user")

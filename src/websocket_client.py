@@ -2,6 +2,7 @@ import asyncio
 import json
 import websockets
 import logging
+import os
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Callable, Any
 from config.config import Config
@@ -34,6 +35,12 @@ class DerivWebSocketClient:
             
             # Start listening for messages
             asyncio.create_task(self._listen())
+            
+            # Authorize if token is available
+            token = os.getenv('DERIV_API_TOKEN')
+            if token:
+                logger.info("Authorizing with Deriv API...")
+                await self._send({"authorize": token})
             
             # Subscribe to tick data
             await self.subscribe_ticks()
@@ -119,12 +126,22 @@ class DerivWebSocketClient:
                     if 'candle_update' in self.callbacks:
                         await self.callbacks['candle_update'](interval, candle)
 
-            elif 'candles' in data:
+            elif 'history' in data:
                 # Handle historical data response
                 echo = data.get('echo_req', {})
                 interval_secs = echo.get('granularity')
                 interval = 'M1' if interval_secs == 60 else 'M5'
+                history = data['history']
+                times = history['times']
+                prices = history['prices'] # This is for ticks, but let's check candles
                 
+                if 'candles' in data: # Usually it's in a different field for history request with style='candles'
+                   pass
+            
+            elif 'candles' in data:
+                echo = data.get('echo_req', {})
+                interval_secs = echo.get('granularity')
+                interval = 'M1' if interval_secs == 60 else 'M5'
                 for c in data['candles']:
                     candle = {
                         'open': float(c['open']),
@@ -136,8 +153,10 @@ class DerivWebSocketClient:
                         'interval': interval
                     }
                     self._update_candle(interval, candle)
-                
                 logger.info(f"Loaded {len(data['candles'])} historical candles for {interval}")
+
+            elif 'authorize' in data:
+                logger.info("Successfully authorized with Deriv API")
                         
             elif 'error' in data:
                 logger.error(f"Deriv API Error: {data['error']}")
@@ -173,12 +192,14 @@ class DerivWebSocketClient:
         
     async def subscribe_candles(self, interval: str):
         """Subscribe to candle data"""
-        # interval should be granularity in seconds as string/int
+        # For live subscription, use ticks_history with subscribe: 1
         subscribe_msg = {
-            "ticks": self.symbol,
+            "ticks_history": self.symbol,
             "subscribe": 1,
             "granularity": int(interval),
-            "style": "candles"
+            "style": "candles",
+            "end": "latest",
+            "count": 1
         }
         await self._send(subscribe_msg)
         logger.info(f"Subscribed to {interval}s candles for {self.symbol}")
@@ -187,10 +208,10 @@ class DerivWebSocketClient:
         """Fetch historical candle data"""
         try:
             # Fetch M1 candles
-            await self._fetch_candles('M1', Config.M1_CANDLE_COUNT)
+            await self._fetch_candles('60', Config.M1_CANDLE_COUNT)
             
             # Fetch M5 candles
-            await self._fetch_candles('M5', Config.M5_CANDLE_COUNT)
+            await self._fetch_candles('300', Config.M5_CANDLE_COUNT)
             
             self.history_fetched = True
             logger.info("Historical candle data fetch requests sent")
@@ -198,19 +219,16 @@ class DerivWebSocketClient:
         except Exception as e:
             logger.error(f"Error fetching candle history: {e}")
             
-    async def _fetch_candles(self, interval: str, count: int):
-        """Fetch candles for specific interval"""
-        granularity = 60 if interval == 'M1' else 300
-        
+    async def _fetch_candles(self, granularity: str, count: int):
+        """Fetch candles for specific granularity"""
         request_msg = {
             "ticks_history": self.symbol,
             "adjust_start_time": 1,
             "count": count,
             "end": "latest",
-            "granularity": granularity,
+            "granularity": int(granularity),
             "style": "candles"
         }
-        
         await self._send(request_msg)
         
     async def _send(self, message: Dict):

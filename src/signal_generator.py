@@ -222,6 +222,8 @@ class SignalGenerator:
             if not self.ws_client.is_ready():
                 return None
                 
+            # Note: Active position check is handled in telegram_bot.py before calling this or processing results
+            
             # Get latest data from both timeframes
             m1_candles = self.ws_client.get_candles('M1')
             m5_candles = self.ws_client.get_candles('M5')

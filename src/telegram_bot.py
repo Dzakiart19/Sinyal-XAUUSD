@@ -267,6 +267,12 @@ PnL: `{pnl_text}`
         """Handle /getsignal command - Generate manual signal"""
         user_id = update.effective_user.id
         
+        # Check if user already has an active position
+        active_positions = self.position_tracker.get_user_positions(user_id)
+        if len(active_positions) > 0:
+            await update.message.reply_text("⚠️ Anda sudah memiliki posisi aktif. Selesaikan posisi tersebut sebelum meminta sinyal baru.")
+            return
+
         # Send waiting message
         wait_msg = await update.message.reply_text("🔄 Mencari sinyal untuk Anda...")
         
@@ -529,6 +535,12 @@ Take Profit: ${Config.DEFAULT_TP}
             
             for user_id in active_users:
                 try:
+                    # Check if user already has an active position
+                    active_positions = self.position_tracker.get_user_positions(user_id)
+                    if len(active_positions) > 0:
+                        logger.info(f"Skipping signal for user {user_id} - already has {len(active_positions)} active positions")
+                        continue
+
                     # Create position for tracking
                     self.position_tracker.create_position(
                         user_id=user_id,

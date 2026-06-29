@@ -20,3 +20,14 @@ python-telegram-bot==20.7
 schedule==1.2.0
 seaborn==0.12.2
 websockets==11.0
+aiofiles
+matplotlib
+numpy
+pandas
+psutil
+python-dotenv
+python-telegram-bot==20.7
+schedule
+seaborn
+websockets==11.0
+wheel

@@ -39,7 +39,27 @@
         "dashboard_sessions": 0,
         "last_command": null
       }
+    },
+    {
+      "user_id": 12345,
+      "username": "test_user",
+      "first_name": "Test User",
+      "is_active": true,
+      "created_at": "2026-06-29T23:23:15.624748",
+      "last_activity": "2026-06-29T23:23:15.625200",
+      "preferences": {
+        "auto_signals": true,
+        "manual_signals": true,
+        "notifications": true,
+        "dashboard_auto_start": true
+      },
+      "stats": {
+        "total_signals_received": 0,
+        "manual_signals_requested": 0,
+        "dashboard_sessions": 0,
+        "last_command": null
+      }
     }
   ],
-  "last_save": "2026-06-29T23:10:27.851848"
+  "last_save": "2026-06-29T23:23:15.625212"
 }

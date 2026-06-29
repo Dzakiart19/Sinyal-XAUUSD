@@ -1,5 +1,6 @@
 import json
 import os
+import os.path
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 import logging
@@ -291,16 +292,17 @@ class StatisticsManager:
             logger.info(f"Reset statistics for user {user_id}")
             
     def _save_statistics(self):
-        """Save statistics to file"""
+        """Save statistics to file — Bug #5 fix: atomic write via temp+rename"""
         try:
             data = {
                 'trades': [trade.to_dict() for trade in self.trades.values()],
                 'user_trades': self.user_trades,
                 'last_save': datetime.now().isoformat()
             }
-            
-            with open(self.data_file, 'w') as f:
+            tmp_path = self.data_file + '.tmp'
+            with open(tmp_path, 'w') as f:
                 json.dump(data, f, indent=2)
+            os.replace(tmp_path, self.data_file)
                 
         except Exception as e:
             logger.error(f"Error saving statistics: {e}")

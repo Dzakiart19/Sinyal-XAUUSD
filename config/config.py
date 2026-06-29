@@ -6,7 +6,9 @@ load_dotenv()
 class Config:
     # Telegram
     BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
-    ADMIN_ID = int(os.getenv('ADMIN_USER_ID', '0'))
+    # Bug #8 fix: default 0 is safe (no valid Telegram ID is 0), but guard non-numeric env var
+    _admin_raw = os.getenv('ADMIN_USER_ID', '0')
+    ADMIN_ID = int(_admin_raw) if _admin_raw.strip().lstrip('-').isdigit() else 0
 
     # Server (untuk health check & cron job)
     PORT = int(os.getenv('PORT', 8080))

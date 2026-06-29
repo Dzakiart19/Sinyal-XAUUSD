@@ -211,15 +211,16 @@ class UserManager:
             logger.info(f"Marked {inactive_count} users as inactive")
             
     def _save_users(self):
-        """Save users to file"""
+        """Save users to file — Bug #5 fix: atomic write via temp+rename"""
         try:
             data = {
                 'users': [user.to_dict() for user in self.users.values()],
                 'last_save': datetime.now().isoformat()
             }
-            
-            with open(self.data_file, 'w') as f:
+            tmp_path = self.data_file + '.tmp'
+            with open(tmp_path, 'w') as f:
                 json.dump(data, f, indent=2)
+            os.replace(tmp_path, self.data_file)
                 
         except Exception as e:
             logger.error(f"Error saving users: {e}")

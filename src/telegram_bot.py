@@ -36,9 +36,11 @@ class XAUUSDBot:
         # aiohttp web runner (used in webhook mode)
         self._web_runner = None
 
-        # Wire up position tracker with websocket and notification callback
+        # Wire up position tracker with websocket, notification callback, and shared stats_manager
+        # Bug #2 fix: inject shared StatisticsManager so it's never re-created per close
         self.position_tracker.set_websocket_client(self.ws_client)
         self.position_tracker.set_notification_callback(self._send_result_notification)
+        self.position_tracker.set_stats_manager(self.stats_manager)
 
         # Register signal callback
         self.signal_generator.register_signal_callback(self._on_new_signal)
@@ -281,6 +283,10 @@ PnL: `{pnl_text}`
             logger.info(f"Dashboard task cancelled for user {user_id}")
         except Exception as e:
             logger.error(f"Error updating dashboard for user {user_id}: {e}")
+        finally:
+            # Bug #4 fix: always clean up dicts when task exits (cancel, error, or break)
+            self.dashboard_tasks.pop(user_id, None)
+            self.dashboard_messages.pop(user_id, None)
             
     async def cmd_stats(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /stats command"""
@@ -316,12 +322,20 @@ PnL: `{pnl_text}`
     async def cmd_getsignal(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /getsignal command - Generate manual signal"""
         user_id = update.effective_user.id
+
+        # Bug #3 fix: enforce rate limit (max 1 request per minute)
+        if not self.user_manager.is_user_allowed_manual_signal(user_id):
+            await update.message.reply_text("⏳ Tunggu 1 menit sebelum meminta sinyal lagi.")
+            return
         
         # Check if user already has an active position
         active_positions = self.position_tracker.get_user_positions(user_id)
         if len(active_positions) > 0:
             await update.message.reply_text("⚠️ Anda sudah memiliki posisi aktif. Selesaikan posisi tersebut sebelum meminta sinyal baru.")
             return
+
+        # Record this request for rate limiting
+        self.user_manager.record_manual_request(user_id)
 
         # Send waiting message
         wait_msg = await update.message.reply_text("🔄 Mencari sinyal untuk Anda...")
@@ -550,6 +564,10 @@ Hubungi admin jika ada masalah.
                 await query.edit_message_text("❌ Anda tidak bisa mereset data user lain!")
         elif data == 'cancel_reset':
             await query.edit_message_text("❌ Reset dibatalkan.")
+        elif data == 'delete_signal':
+            # Bonus fix: handle delete signal — close the user's active positions
+            self.position_tracker.reset_user_positions(user_id)
+            await query.edit_message_text("🗑️ Sinyal dihapus. Bot kembali mencari sinyal baru.")
             
     async def _on_new_signal(self, signal: Signal):
         """Handle new signals from generator"""

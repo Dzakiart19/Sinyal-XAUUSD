@@ -79,6 +79,7 @@ class PositionTracker:
         self.user_positions: Dict[int, List[str]] = {}  # user_id -> [position_ids]
         self.ws_client = None
         self.notification_callback = None
+        self.stats_manager = None  # Bug #2 fix: injected, not re-created per close
         self.is_tracking = False
         self.tracking_task = None
         self.price_history: List[float] = []
@@ -96,6 +97,10 @@ class PositionTracker:
     def set_websocket_client(self, ws_client: DerivWebSocketClient):
         """Set WebSocket client for price updates"""
         self.ws_client = ws_client
+
+    def set_stats_manager(self, stats_manager):
+        """Bug #2 fix: inject shared StatisticsManager instead of re-creating it"""
+        self.stats_manager = stats_manager
         
     async def start_tracking(self):
         """Start position tracking"""
@@ -212,9 +217,11 @@ class PositionTracker:
             # Save to file
             self._save_positions()
             
-            # Update statistics
-            from .statistics import StatisticsManager
-            stats_manager = StatisticsManager()
+            # Bug #2 fix: use injected stats_manager, not a new instance
+            if self.stats_manager is None:
+                from .statistics import StatisticsManager
+                self.stats_manager = StatisticsManager()
+            stats_manager = self.stats_manager
             stats_manager.record_trade(
                 user_id=position.user_id,
                 signal_type=position.signal_type,
@@ -278,16 +285,17 @@ class PositionTracker:
             return f"{seconds}s"
             
     def _save_positions(self):
-        """Save positions to file"""
+        """Save positions to file — Bug #5 fix: atomic write via temp+rename"""
         try:
             data = {
                 'positions': [pos.to_dict() for pos in self.positions.values()],
                 'user_positions': self.user_positions,
                 'last_save': datetime.now().isoformat()
             }
-            
-            with open(self.data_file, 'w') as f:
+            tmp_path = self.data_file + '.tmp'
+            with open(tmp_path, 'w') as f:
                 json.dump(data, f, indent=2)
+            os.replace(tmp_path, self.data_file)
                 
         except Exception as e:
             logger.error(f"Error saving positions: {e}")

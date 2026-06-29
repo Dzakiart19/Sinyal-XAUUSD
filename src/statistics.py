@@ -1,6 +1,5 @@
 import json
 import os
-import os.path
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 import logging

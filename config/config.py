@@ -8,10 +8,8 @@ class Config:
     BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', 'YOUR_BOT_TOKEN')
     ADMIN_ID = int(os.getenv('ADMIN_USER_ID', '123456789'))
 
-    # Webhook / Server
-    WEBHOOK_URL = os.getenv('WEBHOOK_URL', '')          # e.g. https://your-app.replit.app
-    WEBHOOK_SECRET = os.getenv('WEBHOOK_SECRET', '')    # optional secret token
-    PORT = int(os.getenv('PORT', 8080))                 # Cloud Run default port
+    # Server (untuk health check & cron job)
+    PORT = int(os.getenv('PORT', 8080))
 
     # Deriv WebSocket
     DERIV_WS_URL = os.getenv('DERIV_WS_URL', 'wss://ws.derivws.com/websockets/v3?app_id=1089')

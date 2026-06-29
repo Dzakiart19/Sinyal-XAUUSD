@@ -67,69 +67,46 @@ class XAUUSDBot:
             await self.app.initialize()
             await self.app.start()
 
+            # Start HTTP server for health check & cron job (always on)
+            await self._start_http_server()
+
             logger.info("Bot started successfully!")
 
-            if Config.WEBHOOK_URL:
-                await self._start_webhook()
-            else:
-                logger.info("No WEBHOOK_URL set — using polling mode")
-                await self.app.updater.start_polling()
+            # Use polling — simple, works everywhere (Replit, Cloud Run, VPS)
+            await self.app.updater.start_polling()
 
         except Exception as e:
             logger.error(f"Error starting bot: {e}")
             raise
 
-    async def _start_webhook(self):
-        """Set Telegram webhook and start aiohttp server"""
-        webhook_url = f"{Config.WEBHOOK_URL.rstrip('/')}/webhook"
-
-        # Register webhook with Telegram
-        await self.app.bot.set_webhook(
-            url=webhook_url,
-            secret_token=Config.WEBHOOK_SECRET or None,
-            allowed_updates=Update.ALL_TYPES,
-        )
-        logger.info(f"Webhook registered: {webhook_url}")
-
-        # Build aiohttp app
+    async def _start_http_server(self):
+        """Start lightweight HTTP server for health check and cron job"""
         web_app = web.Application()
-        web_app.router.add_post('/webhook', self._handle_webhook_request)
         web_app.router.add_get('/health', self._handle_health)
+        web_app.router.add_get('/cron/tick', self._handle_cron_tick)
         web_app.router.add_get('/', self._handle_health)
 
         self._web_runner = web.AppRunner(web_app)
         await self._web_runner.setup()
         site = web.TCPSite(self._web_runner, '0.0.0.0', Config.PORT)
         await site.start()
-        logger.info(f"Webhook server listening on port {Config.PORT}")
-
-    async def _handle_webhook_request(self, request: web.Request) -> web.Response:
-        """Receive Telegram update via webhook"""
-        try:
-            # Validate secret token if configured
-            if Config.WEBHOOK_SECRET:
-                token = request.headers.get('X-Telegram-Bot-Api-Secret-Token', '')
-                if token != Config.WEBHOOK_SECRET:
-                    return web.Response(status=403, text='Forbidden')
-
-            data = await request.json()
-            update = Update.de_json(data, self.app.bot)
-            await self.app.process_update(update)
-            return web.Response(text='OK')
-        except Exception as e:
-            logger.error(f"Error handling webhook request: {e}")
-            return web.Response(status=500, text='Internal Server Error')
+        logger.info(f"HTTP server listening on port {Config.PORT} — /health & /cron/tick ready")
 
     async def _handle_health(self, request: web.Request) -> web.Response:
-        """Health check endpoint — used by cron job to keep container alive"""
+        """Health check — ping ini dari cron job supaya container tetap hidup"""
         ws_ok = self.ws_client.is_connected and self.ws_client.is_ready()
         status = {
             'status': 'ok',
             'websocket': 'connected' if ws_ok else 'disconnected',
             'active_positions': len(self.position_tracker.get_active_positions()),
         }
+        return web.Response(text=json.dumps(status), content_type='application/json')
+
+    async def _handle_cron_tick(self, request: web.Request) -> web.Response:
+        """Cron trigger — bisa dipakai untuk force analysis dari luar"""
+        ws_ok = self.ws_client.is_connected and self.ws_client.is_ready()
         return web.Response(
-            text=json.dumps(status),
+            text=json.dumps({'ok': True, 'websocket': ws_ok}),
             content_type='application/json'
         )
 
@@ -140,13 +117,9 @@ class XAUUSDBot:
             for task in self.dashboard_tasks.values():
                 task.cancel()
 
-            # Stop aiohttp server if running
+            # Stop HTTP server
             if self._web_runner:
                 await self._web_runner.cleanup()
-
-            # Delete webhook if it was set
-            if Config.WEBHOOK_URL:
-                await self.app.bot.delete_webhook()
 
             # Stop components
             await self.signal_generator.stop()

@@ -8,7 +8,6 @@ from enum import Enum
 from .websocket_client import DerivWebSocketClient
 from config.config import Config
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class PositionStatus(Enum):

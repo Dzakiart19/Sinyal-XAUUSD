@@ -5,8 +5,8 @@ load_dotenv()
 
 class Config:
     # Telegram
-    BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', 'YOUR_BOT_TOKEN')
-    ADMIN_ID = int(os.getenv('ADMIN_USER_ID', '123456789'))
+    BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
+    ADMIN_ID = int(os.getenv('ADMIN_USER_ID', '0'))
 
     # Server (untuk health check & cron job)
     PORT = int(os.getenv('PORT', 8080))

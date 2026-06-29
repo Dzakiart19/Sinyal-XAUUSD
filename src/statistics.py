@@ -6,7 +6,6 @@ import logging
 
 from config.config import Config
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class TradeRecord:

@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 from config.config import Config
 import logging
 
@@ -10,86 +10,83 @@ class TechnicalIndicators:
     """Technical Indicators Calculator"""
     
     @staticmethod
-    def calculate_ema(prices: List[float], period: int) -> float:
+    def calculate_ema(prices: List[float], period: int) -> Optional[float]:
         """Calculate Exponential Moving Average"""
         if len(prices) < period:
             return None
             
-        prices_array = np.array(prices[-period:])
+        prices_array = np.array(prices, dtype=float)
         ema = pd.Series(prices_array).ewm(span=period, adjust=False).mean().iloc[-1]
         return float(ema)
         
     @staticmethod
-    def calculate_rsi(prices: List[float], period: int = 3) -> float:
+    def calculate_rsi(prices: List[float], period: int = 3) -> Optional[float]:
         """Calculate Relative Strength Index"""
         if len(prices) < period + 1:
             return None
             
-        prices_array = np.array(prices)
+        prices_array = np.array(prices, dtype=float)
         delta = np.diff(prices_array)
         
-        # Separate gains and losses
-        gains = np.where(delta > 0, delta, 0)
-        losses = np.where(delta < 0, -delta, 0)
+        gains  = np.where(delta > 0, delta, 0.0)
+        losses = np.where(delta < 0, -delta, 0.0)
         
-        # Calculate average gains and losses
-        avg_gains = pd.Series(gains).rolling(window=period).mean().iloc[-1]
+        avg_gains  = pd.Series(gains).rolling(window=period).mean().iloc[-1]
         avg_losses = pd.Series(losses).rolling(window=period).mean().iloc[-1]
         
         if avg_losses == 0:
             return 100.0
             
-        rs = avg_gains / avg_losses
+        rs  = avg_gains / avg_losses
         rsi = 100 - (100 / (1 + rs))
-        
         return float(rsi)
         
     @staticmethod
-    def calculate_adx(candles: List[Dict], period: int = 55) -> float:
-        """Calculate Average Directional Index"""
+    def calculate_adx(candles: List[Dict], period: int = 55) -> Optional[float]:
+        """Calculate Average Directional Index using Wilder's smoothing.
+
+        Returns proper ADX (smoothed DX), not raw DX.
+        Requires at least period+1 candles; results stabilise with 2×period candles.
+        """
         if len(candles) < period + 1:
             return None
-            
-        # Extract OHLC data
-        highs = [c['high'] for c in candles]
-        lows = [c['low'] for c in candles]
-        closes = [c['close'] for c in candles]
-        
-        # Calculate True Range
-        tr1 = np.array(highs[1:]) - np.array(lows[1:])
-        tr2 = abs(np.array(highs[1:]) - np.array(closes[:-1]))
-        tr3 = abs(np.array(lows[1:]) - np.array(closes[:-1]))
-        
-        tr = np.maximum(np.maximum(tr1, tr2), tr3)
-        tr = np.concatenate([[0], tr])  # Add 0 for first candle
-        
-        # Calculate +DM and -DM
-        up_move = np.array(highs[1:]) - np.array(highs[:-1])
-        down_move = np.array(lows[:-1]) - np.array(lows[1:])
-        
-        plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0)
-        minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0)
-        
-        plus_dm = np.concatenate([[0], plus_dm])
-        minus_dm = np.concatenate([[0], minus_dm])
-        
-        # Calculate smoothed values
-        tr_smooth = pd.Series(tr).rolling(window=period).sum().iloc[-1]
-        plus_dm_smooth = pd.Series(plus_dm).rolling(window=period).sum().iloc[-1]
-        minus_dm_smooth = pd.Series(minus_dm).rolling(window=period).sum().iloc[-1]
-        
-        if tr_smooth == 0:
-            return 0.0
-            
-        # Calculate +DI and -DI
-        plus_di = 100 * (plus_dm_smooth / tr_smooth)
-        minus_di = 100 * (minus_dm_smooth / tr_smooth)
-        
-        # Calculate DX
-        dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di) if (plus_di + minus_di) != 0 else 0
-        
-        return float(dx)
-        
+
+        highs  = np.array([c['high']  for c in candles], dtype=float)
+        lows   = np.array([c['low']   for c in candles], dtype=float)
+        closes = np.array([c['close'] for c in candles], dtype=float)
+
+        # True Range
+        tr1 = highs[1:] - lows[1:]
+        tr2 = np.abs(highs[1:] - closes[:-1])
+        tr3 = np.abs(lows[1:]  - closes[:-1])
+        tr  = np.maximum(np.maximum(tr1, tr2), tr3)
+
+        # Directional Movement
+        up_move   = highs[1:] - highs[:-1]
+        down_move = lows[:-1] - lows[1:]
+
+        plus_dm  = np.where((up_move > down_move) & (up_move > 0), up_move, 0.0)
+        minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0.0)
+
+        # Wilder's smoothing: alpha = 1/period  (equiv. to EWM with adjust=False)
+        alpha = 1.0 / period
+        tr_s   = pd.Series(tr).ewm(alpha=alpha, adjust=False).mean().values
+        pdm_s  = pd.Series(plus_dm).ewm(alpha=alpha, adjust=False).mean().values
+        mdm_s  = pd.Series(minus_dm).ewm(alpha=alpha, adjust=False).mean().values
+
+        # DI lines
+        with np.errstate(divide='ignore', invalid='ignore'):
+            plus_di  = np.where(tr_s != 0, 100.0 * pdm_s / tr_s, 0.0)
+            minus_di = np.where(tr_s != 0, 100.0 * mdm_s / tr_s, 0.0)
+
+            di_sum  = plus_di + minus_di
+            di_diff = np.abs(plus_di - minus_di)
+            dx = np.where(di_sum != 0, 100.0 * di_diff / di_sum, 0.0)
+
+        # ADX = Wilder's smoothed DX  (this is the step that was missing before)
+        adx = pd.Series(dx).ewm(alpha=alpha, adjust=False).mean().iloc[-1]
+        return float(adx)
+
     @staticmethod
     def calculate_atr(candles: List[Dict], period: int = 14) -> Optional[float]:
         """Calculate Average True Range — ukuran volatilitas market"""
@@ -113,11 +110,10 @@ class TechnicalIndicators:
         return atr
 
     @staticmethod
-    def calculate_sma(prices: List[float], period: int) -> float:
+    def calculate_sma(prices: List[float], period: int) -> Optional[float]:
         """Calculate Simple Moving Average"""
         if len(prices) < period:
             return None
-            
         return float(np.mean(prices[-period:]))
         
     @staticmethod
@@ -161,11 +157,11 @@ class TechnicalIndicators:
         if adx_55 is not None:
             indicators['ADX_55'] = adx_55
             
-        # Current price
+        # Current & previous price
         indicators['CURRENT_PRICE'] = closes[-1] if closes else None
-        indicators['PREV_PRICE'] = closes[-2] if len(closes) > 1 else None
+        indicators['PREV_PRICE']    = closes[-2] if len(closes) > 1 else None
 
-        # Previous RSI for signal detection
+        # Previous RSI for crossover detection
         if len(closes) >= Config.RSI_PERIOD + 2:
             prev_rsi = cls.calculate_rsi(closes[:-1], Config.RSI_PERIOD)
             indicators['PREV_RSI_3'] = prev_rsi
@@ -196,27 +192,21 @@ class TechnicalIndicators:
     def check_buy_signal(cls, indicators: Dict[str, float], prev_indicators: Dict[str, float] = None) -> bool:
         """Check if buy signal conditions are met"""
         try:
-            # Check if we have all required indicators
             required = ['EMA_50', 'RSI_3', 'ADX_55', 'CURRENT_PRICE', 'PREV_RSI_3']
             if not all(ind in indicators for ind in required):
                 return False
                 
-            # Condition 1: Price above EMA 50
             price_above_ema = indicators['CURRENT_PRICE'] > indicators['EMA_50']
             
-            # Condition 2 & 3: RSI was oversold and now exiting
             current_rsi = indicators['RSI_3']
-            prev_rsi = indicators['PREV_RSI_3']
+            prev_rsi    = indicators['PREV_RSI_3']
             
             rsi_exiting_oversold = (
                 prev_rsi <= Config.RSI_EXIT_OVERSOLD and 
                 current_rsi > Config.RSI_EXIT_OVERSOLD
             )
             
-            # Condition 4: ADX > 30
-            adx_strong = indicators['ADX_55'] > Config.ADX_THRESHOLD
-            
-            # Additional: RSI in acceptable range
+            adx_strong  = indicators['ADX_55'] > Config.ADX_THRESHOLD
             rsi_in_range = Config.RSI_EXIT_OVERSOLD <= current_rsi <= 50
             
             return (
@@ -234,27 +224,21 @@ class TechnicalIndicators:
     def check_sell_signal(cls, indicators: Dict[str, float], prev_indicators: Dict[str, float] = None) -> bool:
         """Check if sell signal conditions are met"""
         try:
-            # Check if we have all required indicators
             required = ['EMA_50', 'RSI_3', 'ADX_55', 'CURRENT_PRICE', 'PREV_RSI_3']
             if not all(ind in indicators for ind in required):
                 return False
                 
-            # Condition 1: Price below EMA 50
             price_below_ema = indicators['CURRENT_PRICE'] < indicators['EMA_50']
             
-            # Condition 2 & 3: RSI was overbought and now exiting
             current_rsi = indicators['RSI_3']
-            prev_rsi = indicators['PREV_RSI_3']
+            prev_rsi    = indicators['PREV_RSI_3']
             
             rsi_exiting_overbought = (
                 prev_rsi >= Config.RSI_EXIT_OVERBOUGHT and 
                 current_rsi < Config.RSI_EXIT_OVERBOUGHT
             )
             
-            # Condition 4: ADX > 30
-            adx_strong = indicators['ADX_55'] > Config.ADX_THRESHOLD
-            
-            # Additional: RSI in acceptable range
+            adx_strong   = indicators['ADX_55'] > Config.ADX_THRESHOLD
             rsi_in_range = 50 <= current_rsi <= Config.RSI_EXIT_OVERBOUGHT
             
             return (

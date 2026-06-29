@@ -49,7 +49,8 @@ class SignalGenerator:
         }
         self.signal_callbacks = []
         self.is_running = False
-        self.processed_candles = set()  # Track processed candles to avoid duplicates
+        self.processed_candles = set()   # Track processed candles to avoid duplicates
+        self._MAX_PROCESSED = 500         # Cap agar tidak tumbuh tak terbatas (OOM guard)
         
         # Register callbacks with WebSocket client
         self.ws_client.register_callback('candle_update', self._on_candle_update)
@@ -128,12 +129,14 @@ class SignalGenerator:
                 signal = self._create_signal('BUY', indicators, timeframe)
                 if signal and self._is_valid_signal(signal):
                     self.processed_candles.add(candle_key)
+                    self._trim_processed_candles()
                     await self._emit_signal(signal)
                     
             elif sell_signal:
                 signal = self._create_signal('SELL', indicators, timeframe)
                 if signal and self._is_valid_signal(signal):
                     self.processed_candles.add(candle_key)
+                    self._trim_processed_candles()
                     await self._emit_signal(signal)
                     
         except Exception as e:
@@ -215,6 +218,14 @@ class SignalGenerator:
             except Exception as e:
                 logger.error(f"Error in signal callback: {e}")
                 
+    def _trim_processed_candles(self):
+        """Buang entri lama jika set melebihi batas — cegah memory leak"""
+        if len(self.processed_candles) > self._MAX_PROCESSED:
+            # Hapus separuh entri terlama (set tidak ordered, jadi hapus sembarangan tapi aman)
+            excess = len(self.processed_candles) - (self._MAX_PROCESSED // 2)
+            for key in list(self.processed_candles)[:excess]:
+                self.processed_candles.discard(key)
+
     async def _on_candle_update(self, interval: str, candle: Dict):
         """Handle candle update from WebSocket"""
         # This will trigger immediate signal check

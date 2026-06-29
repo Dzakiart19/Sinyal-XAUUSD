@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Callable, Any
 from config.config import Config
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class DerivWebSocketClient:

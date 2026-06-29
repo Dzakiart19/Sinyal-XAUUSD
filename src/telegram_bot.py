@@ -31,6 +31,10 @@ class XAUUSDBot:
         self.dashboard_messages = {}  # user_id -> message_id
         self.dashboard_tasks = {}     # user_id -> task
         
+        # Wire up position tracker with websocket and notification callback
+        self.position_tracker.set_websocket_client(self.ws_client)
+        self.position_tracker.set_notification_callback(self._send_result_notification)
+        
         # Register signal callback
         self.signal_generator.register_signal_callback(self._on_new_signal)
         
@@ -47,6 +51,9 @@ class XAUUSDBot:
                 
             # Start signal generator
             await self.signal_generator.start()
+            
+            # Start position tracking
+            await self.position_tracker.start_tracking()
             
             # Set up command handlers
             self._setup_handlers()
@@ -565,6 +572,17 @@ Take Profit: ${Config.DEFAULT_TP}
         except Exception as e:
             logger.error(f"Error handling new signal: {e}")
             
+    async def _send_result_notification(self, user_id: int, message: str):
+        """Send TP/SL result notification to user"""
+        try:
+            await self.app.bot.send_message(
+                chat_id=user_id,
+                text=message,
+                parse_mode='Markdown'
+            )
+        except TelegramError as e:
+            logger.error(f"Failed to send result notification to user {user_id}: {e}")
+
     async def run(self):
         """Run the bot (blocking)"""
         try:

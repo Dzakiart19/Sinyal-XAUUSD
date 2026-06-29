@@ -79,6 +79,7 @@ class PositionTracker:
         self.positions: Dict[str, Position] = {}  # position_id -> Position
         self.user_positions: Dict[int, List[str]] = {}  # user_id -> [position_ids]
         self.ws_client = None
+        self.notification_callback = None
         self.is_tracking = False
         self.tracking_task = None
         self.price_history: List[float] = []
@@ -88,6 +89,10 @@ class PositionTracker:
         
         # Load existing data
         self._load_positions()
+
+    def set_notification_callback(self, callback):
+        """Set callback for sending result notifications"""
+        self.notification_callback = callback
         
     def set_websocket_client(self, ws_client: DerivWebSocketClient):
         """Set WebSocket client for price updates"""
@@ -167,7 +172,7 @@ class PositionTracker:
         """Main tracking loop - runs every 5 seconds"""
         try:
             while self.is_tracking:
-                if self.ws_client and self.ws_client.is_connected():
+                if self.ws_client and self.ws_client.is_connected:
                     current_price = self.ws_client.get_latest_price()
                     
                     if current_price:
@@ -246,15 +251,10 @@ class PositionTracker:
 🔄 Bot mencari sinyal baru...
             """
             
-            # Send notification to user
-            from .telegram_bot import XAUUSDBot
-            if hasattr(XAUUSDBot, 'app') and XAUUSDBot.app:
+            # Send notification via callback
+            if self.notification_callback:
                 try:
-                    await XAUUSDBot.app.bot.send_message(
-                        chat_id=position.user_id,
-                        text=result_message,
-                        parse_mode='Markdown'
-                    )
+                    await self.notification_callback(position.user_id, result_message)
                 except Exception as e:
                     logger.error(f"Failed to send result to user {position.user_id}: {e}")
                     

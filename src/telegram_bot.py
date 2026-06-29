@@ -1,10 +1,12 @@
 import asyncio
 import logging
+import json
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
 from telegram.error import TelegramError
+from aiohttp import web
 
 from .websocket_client import DerivWebSocketClient
 from .signal_generator import SignalGenerator, Signal
@@ -26,15 +28,18 @@ class XAUUSDBot:
         self.position_tracker = PositionTracker()
         self.user_manager = UserManager()
         self.stats_manager = StatisticsManager()
-        
+
         # Track active dashboard messages
         self.dashboard_messages = {}  # user_id -> message_id
         self.dashboard_tasks = {}     # user_id -> task
-        
+
+        # aiohttp web runner (used in webhook mode)
+        self._web_runner = None
+
         # Wire up position tracker with websocket and notification callback
         self.position_tracker.set_websocket_client(self.ws_client)
         self.position_tracker.set_notification_callback(self._send_result_notification)
-        
+
         # Register signal callback
         self.signal_generator.register_signal_callback(self._on_new_signal)
         
@@ -43,50 +48,115 @@ class XAUUSDBot:
         try:
             # Initialize WebSocket connection
             await self.ws_client.connect()
-            
+
             # Wait for WebSocket to be ready
             while not self.ws_client.is_ready():
                 logger.info("Waiting for WebSocket to be ready...")
                 await asyncio.sleep(2)
-                
+
             # Start signal generator
             await self.signal_generator.start()
-            
+
             # Start position tracking
             await self.position_tracker.start_tracking()
-            
+
             # Set up command handlers
             self._setup_handlers()
-            
-            # Start the bot
+
+            # Initialize bot application
             await self.app.initialize()
             await self.app.start()
-            
+
             logger.info("Bot started successfully!")
-            
-            # Keep running
-            await self.app.updater.start_polling()
-            
+
+            if Config.WEBHOOK_URL:
+                await self._start_webhook()
+            else:
+                logger.info("No WEBHOOK_URL set — using polling mode")
+                await self.app.updater.start_polling()
+
         except Exception as e:
             logger.error(f"Error starting bot: {e}")
             raise
-            
+
+    async def _start_webhook(self):
+        """Set Telegram webhook and start aiohttp server"""
+        webhook_url = f"{Config.WEBHOOK_URL.rstrip('/')}/webhook"
+
+        # Register webhook with Telegram
+        await self.app.bot.set_webhook(
+            url=webhook_url,
+            secret_token=Config.WEBHOOK_SECRET or None,
+            allowed_updates=Update.ALL_TYPES,
+        )
+        logger.info(f"Webhook registered: {webhook_url}")
+
+        # Build aiohttp app
+        web_app = web.Application()
+        web_app.router.add_post('/webhook', self._handle_webhook_request)
+        web_app.router.add_get('/health', self._handle_health)
+        web_app.router.add_get('/', self._handle_health)
+
+        self._web_runner = web.AppRunner(web_app)
+        await self._web_runner.setup()
+        site = web.TCPSite(self._web_runner, '0.0.0.0', Config.PORT)
+        await site.start()
+        logger.info(f"Webhook server listening on port {Config.PORT}")
+
+    async def _handle_webhook_request(self, request: web.Request) -> web.Response:
+        """Receive Telegram update via webhook"""
+        try:
+            # Validate secret token if configured
+            if Config.WEBHOOK_SECRET:
+                token = request.headers.get('X-Telegram-Bot-Api-Secret-Token', '')
+                if token != Config.WEBHOOK_SECRET:
+                    return web.Response(status=403, text='Forbidden')
+
+            data = await request.json()
+            update = Update.de_json(data, self.app.bot)
+            await self.app.process_update(update)
+            return web.Response(text='OK')
+        except Exception as e:
+            logger.error(f"Error handling webhook request: {e}")
+            return web.Response(status=500, text='Internal Server Error')
+
+    async def _handle_health(self, request: web.Request) -> web.Response:
+        """Health check endpoint — used by cron job to keep container alive"""
+        ws_ok = self.ws_client.is_connected and self.ws_client.is_ready()
+        status = {
+            'status': 'ok',
+            'websocket': 'connected' if ws_ok else 'disconnected',
+            'active_positions': len(self.position_tracker.get_active_positions()),
+        }
+        return web.Response(
+            text=json.dumps(status),
+            content_type='application/json'
+        )
+
     async def stop(self):
         """Stop the bot"""
         try:
             # Stop all tasks
             for task in self.dashboard_tasks.values():
                 task.cancel()
-                
+
+            # Stop aiohttp server if running
+            if self._web_runner:
+                await self._web_runner.cleanup()
+
+            # Delete webhook if it was set
+            if Config.WEBHOOK_URL:
+                await self.app.bot.delete_webhook()
+
             # Stop components
             await self.signal_generator.stop()
             await self.ws_client.disconnect()
-            
+
             # Stop bot
             await self.app.stop()
-            
+
             logger.info("Bot stopped successfully")
-            
+
         except Exception as e:
             logger.error(f"Error stopping bot: {e}")
             

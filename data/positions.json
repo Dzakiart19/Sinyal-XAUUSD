@@ -1,7 +1,41 @@
 {
-  "positions": [],
+  "positions": [
+    {
+      "position_id": "7873001910_1782774135",
+      "user_id": 7873001910,
+      "signal_type": "SELL",
+      "entry_price": 4016.26,
+      "tp": 4013.26,
+      "sl": 4019.26,
+      "timeframe": "M1",
+      "is_manual": false,
+      "status": "active",
+      "created_at": "2026-06-29T23:02:15.332400",
+      "closed_at": null,
+      "pnl": 0.0
+    },
+    {
+      "position_id": "7390867903_1782774135",
+      "user_id": 7390867903,
+      "signal_type": "SELL",
+      "entry_price": 4016.26,
+      "tp": 4013.26,
+      "sl": 4019.26,
+      "timeframe": "M1",
+      "is_manual": false,
+      "status": "active",
+      "created_at": "2026-06-29T23:02:15.742330",
+      "closed_at": null,
+      "pnl": 0.0
+    }
+  ],
   "user_positions": {
-    "7873001910": []
+    "7873001910": [
+      "7873001910_1782774135"
+    ],
+    "7390867903": [
+      "7390867903_1782774135"
+    ]
   },
-  "last_save": "2025-12-31T07:57:42.182295"
+  "last_save": "2026-06-29T23:02:15.742352"
 }

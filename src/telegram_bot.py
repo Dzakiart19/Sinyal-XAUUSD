@@ -13,6 +13,7 @@ from .signal_generator import SignalGenerator, Signal
 from .position_tracker import PositionTracker
 from .user_manager import UserManager
 from .statistics import StatisticsManager
+from .utils import now_wib, to_wib
 from config.config import Config
 
 # logging.basicConfig is already configured in main.py
@@ -236,7 +237,7 @@ Bot akan otomatis mengirim sinyal saat kondisi terpenuhi. 🎯
 📊 *XAUUSD DASHBOARD*
 
 💰 *Harga Live:* `{price_text}`
-⏰ *Update:* {datetime.now().strftime('%H:%M:%S')}
+⏰ *Update:* {now_wib().strftime('%H:%M:%S')} WIB
 
 📈 *Posisi Aktif:* {len(active_positions)}
                 """
@@ -371,7 +372,7 @@ PnL: `{pnl_text}`
 • ADX 55: {signal.adx:.2f}
 
 ⏰ *Timeframe:* {signal.timeframe}
-🕐 *Waktu:* {signal.timestamp.strftime('%Y-%m-%d %H:%M:%S')}
+🕐 *Waktu:* {signal.timestamp.strftime('%Y-%m-%d %H:%M:%S')} WIB
 
 ⚠️ *Risk Management:*
 Risk:Reward = 1:1
@@ -588,7 +589,7 @@ Hubungi admin jika ada masalah.
 • ADX 55: {signal.adx:.2f}
 
 ⏰ *Timeframe:* {signal.timeframe}
-🕐 *Waktu:* {signal.timestamp.strftime('%Y-%m-%d %H:%M:%S')}
+🕐 *Waktu:* {signal.timestamp.strftime('%Y-%m-%d %H:%M:%S')} WIB
 
 ⚠️ *Risk Management:*
 Risk:Reward = 1:1

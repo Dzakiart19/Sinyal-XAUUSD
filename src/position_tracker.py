@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from enum import Enum
 from .websocket_client import DerivWebSocketClient
+from .utils import now_wib, to_wib
 from config.config import Config
 
 logger = logging.getLogger(__name__)
@@ -28,7 +29,7 @@ class Position:
         self.timeframe = timeframe
         self.is_manual = is_manual
         self.status = PositionStatus.ACTIVE
-        self.created_at = datetime.now()
+        self.created_at = now_wib()
         self.closed_at = None
         self.pnl = 0.0
         self.position_id = f"{user_id}_{int(self.created_at.timestamp())}"
@@ -211,7 +212,7 @@ class PositionTracker:
         try:
             # Update position status
             position.status = PositionStatus.WIN if close_reason == 'TP' else PositionStatus.LOSS
-            position.closed_at = datetime.now()
+            position.closed_at = now_wib()
             position.pnl = close_price - position.entry_price if position.signal_type == 'BUY' else position.entry_price - close_price
             
             # Save to file
@@ -251,7 +252,7 @@ class PositionTracker:
 💵 *PnL:* ${position.pnl:+.2f}
 🎯 *Winrate:* {winrate:.2f}%
 
-⏰ *Time Closed:* {position.closed_at.strftime('%Y-%m-%d %H:%M:%S')}
+⏰ *Time Closed:* {position.closed_at.strftime('%Y-%m-%d %H:%M:%S')} WIB
 ⏱️ *Duration:* {self._format_duration(position.created_at, position.closed_at)}
 
 🔄 Bot mencari sinyal baru...

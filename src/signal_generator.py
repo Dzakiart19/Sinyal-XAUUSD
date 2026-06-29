@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Callable, Any
 from .websocket_client import DerivWebSocketClient
 from .indicators import TechnicalIndicators
+from .utils import now_wib
 from config.config import Config
 
 logger = logging.getLogger(__name__)
@@ -176,7 +177,7 @@ class SignalGenerator:
                 ema_50=ema_50,
                 rsi=rsi,
                 adx=adx,
-                timestamp=datetime.now(),
+                timestamp=now_wib(),
                 timeframe=timeframe,
                 tp=tp,
                 sl=sl

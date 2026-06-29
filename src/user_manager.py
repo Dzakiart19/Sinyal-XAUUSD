@@ -181,8 +181,13 @@ class UserManager:
         }
         
     def _start_cleanup_task(self):
-        """Start periodic cleanup task"""
-        asyncio.create_task(self._cleanup_loop())
+        """Start periodic cleanup task — safe for both sync and async contexts"""
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._cleanup_loop())
+        except RuntimeError:
+            # No running event loop — task will be started lazily on first async call
+            logger.debug("No running event loop — cleanup task deferred")
         
     async def _cleanup_loop(self):
         """Periodically cleanup inactive users"""
@@ -292,7 +297,8 @@ class UserManager:
         """Check if user is allowed to request manual signal"""
         user_state = self.get_user(user_id)
         if not user_state:
-            return False
+            # Bug fix: new users (not yet registered via /start) are allowed once
+            return True
             
         # Check rate limiting (max 1 request per minute)
         last_request = user_state.stats.get('last_manual_request_time')

@@ -190,7 +190,7 @@ Bot akan otomatis mengirim sinyal saat kondisi terpenuhi. 🎯
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await update.message.reply_text(welcome_message, 
+        await update.effective_message.reply_text(welcome_message, 
                                       parse_mode='Markdown',
                                       reply_markup=reply_markup)
         
@@ -208,11 +208,11 @@ Bot akan otomatis mengirim sinyal saat kondisi terpenuhi. 🎯
         
         # Check if dashboard is already running
         if user_id in self.dashboard_tasks and not self.dashboard_tasks[user_id].done():
-            await update.message.reply_text("Dashboard sudah aktif! Ketik /stop untuk menghentikan.")
+            await update.effective_message.reply_text("Dashboard sudah aktif! Ketik /stop untuk menghentikan.")
             return
             
         # Send initial dashboard message
-        dashboard_msg = await update.message.reply_text("🔄 Memulai dashboard...")
+        dashboard_msg = await update.effective_message.reply_text("🔄 Memulai dashboard...")
         self.dashboard_messages[user_id] = dashboard_msg.message_id
         
         # Start dashboard update task
@@ -316,7 +316,7 @@ PnL: `{pnl_text}`
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await update.message.reply_text(stats_text, 
+        await update.effective_message.reply_text(stats_text, 
                                       parse_mode='Markdown',
                                       reply_markup=reply_markup)
         
@@ -326,20 +326,20 @@ PnL: `{pnl_text}`
 
         # Bug #3 fix: enforce rate limit (max 1 request per minute)
         if not self.user_manager.is_user_allowed_manual_signal(user_id):
-            await update.message.reply_text("⏳ Tunggu 1 menit sebelum meminta sinyal lagi.")
+            await update.effective_message.reply_text("⏳ Tunggu 1 menit sebelum meminta sinyal lagi.")
             return
         
         # Check if user already has an active position
         active_positions = self.position_tracker.get_user_positions(user_id)
         if len(active_positions) > 0:
-            await update.message.reply_text("⚠️ Anda sudah memiliki posisi aktif. Selesaikan posisi tersebut sebelum meminta sinyal baru.")
+            await update.effective_message.reply_text("⚠️ Anda sudah memiliki posisi aktif. Selesaikan posisi tersebut sebelum meminta sinyal baru.")
             return
 
         # Record this request for rate limiting
         self.user_manager.record_manual_request(user_id)
 
         # Send waiting message
-        wait_msg = await update.message.reply_text("🔄 Mencari sinyal untuk Anda...")
+        wait_msg = await update.effective_message.reply_text("🔄 Mencari sinyal untuk Anda...")
         
         # Generate manual signal
         signal = await self.signal_generator.generate_manual_signal(user_id)
@@ -448,7 +448,7 @@ Selalu gunakan risk management yang tepat.
 Trading forex dan emas melibatkan risiko kehilangan modal.
         """
         
-        await update.message.reply_text(info_text, parse_mode='Markdown')
+        await update.effective_message.reply_text(info_text, parse_mode='Markdown')
         
     async def cmd_riset(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /riset command - Reset user statistics"""
@@ -463,7 +463,7 @@ Trading forex dan emas melibatkan risiko kehilangan modal.
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await update.message.reply_text(
+        await update.effective_message.reply_text(
             "⚠️ *RESET DATA TRADING*\n\nAnda yakin ingin mereset semua data trading?\n"
             "Data yang akan dihapus:\n"
             "• Riwayat posisi\n"
@@ -525,19 +525,22 @@ Trading forex dan emas melibatkan risiko kehilangan modal.
 Hubungi admin jika ada masalah.
         """
         
-        await update.message.reply_text(help_text, parse_mode='Markdown')
+        await update.effective_message.reply_text(help_text, parse_mode='Markdown')
         
     async def cmd_stop_dashboard(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /stop command - Stop dashboard updates"""
         user_id = update.effective_user.id
         
         if user_id in self.dashboard_tasks:
-            self.dashboard_tasks[user_id].cancel()
-            del self.dashboard_tasks[user_id]
-            
-            await update.message.reply_text("✅ Dashboard dihentikan.")
+            task = self.dashboard_tasks.get(user_id)
+            if task and not task.done():
+                task.cancel()
+            # Bug #4 fix: use pop to avoid KeyError — finally block may have already cleaned up
+            self.dashboard_tasks.pop(user_id, None)
+            self.dashboard_messages.pop(user_id, None)
+            await update.effective_message.reply_text("✅ Dashboard dihentikan.")
         else:
-            await update.message.reply_text("ℹ️ Dashboard tidak aktif.")
+            await update.effective_message.reply_text("ℹ️ Dashboard tidak aktif.")
             
     async def handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle callback queries"""

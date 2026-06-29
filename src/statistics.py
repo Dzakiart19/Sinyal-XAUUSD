@@ -60,10 +60,11 @@ class StatisticsManager:
         # Store trade
         self.trades[trade.trade_id] = trade
         
-        # Add to user's trades
+        # Add to user's trades — guard duplicate IDs
         if user_id not in self.user_trades:
             self.user_trades[user_id] = []
-        self.user_trades[user_id].append(trade.trade_id)
+        if trade.trade_id not in self.user_trades[user_id]:
+            self.user_trades[user_id].append(trade.trade_id)
         
         # Keep only last 1000 trades per user
         if len(self.user_trades[user_id]) > 1000:

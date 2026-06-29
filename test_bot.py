@@ -8,6 +8,11 @@ import asyncio
 import sys
 import os
 
+# ANSI colors — fix: were missing, causing NameError in print_summary()
+GREEN = '\033[0;32m'
+RED   = '\033[0;31m'
+NC    = '\033[0m'
+
 # Add src directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 

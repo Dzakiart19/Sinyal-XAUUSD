@@ -24,6 +24,7 @@ class DerivWebSocketClient:
         self.last_tick = None
         self.callbacks = {}
         self.history_fetched = False
+        self._reconnecting = False  # Bug fix: prevent concurrent reconnection tasks
         
     async def connect(self):
         """Connect to Deriv WebSocket"""
@@ -77,11 +78,20 @@ class DerivWebSocketClient:
             self.is_connected = False
             
     async def _reconnect(self):
-        """Reconnect on connection loss"""
-        while not self.is_connected:
-            logger.info("Attempting to reconnect...")
-            await asyncio.sleep(5)
-            await self.connect()
+        """Reconnect on connection loss — guarded to prevent concurrent reconnect tasks"""
+        if self._reconnecting:
+            return
+        self._reconnecting = True
+        try:
+            while not self.is_connected:
+                logger.info("Attempting to reconnect...")
+                await asyncio.sleep(5)
+                try:
+                    await self.connect()
+                except Exception as e:
+                    logger.error(f"Reconnect attempt failed: {e}")
+        finally:
+            self._reconnecting = False
             
     async def _handle_message(self, data: Dict[str, Any]):
         """Handle incoming WebSocket messages"""

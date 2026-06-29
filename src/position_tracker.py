@@ -321,8 +321,10 @@ class PositionTracker:
                     )
                     position.position_id = pos_data['position_id']
                     position.status = PositionStatus(pos_data['status'])
-                    position.created_at = datetime.fromisoformat(pos_data['created_at'])
-                    position.closed_at = datetime.fromisoformat(pos_data['closed_at']) if pos_data['closed_at'] else None
+                    # Bug #2 fix: convert loaded datetimes to WIB-aware to prevent
+                    # TypeError when mixing naive (old data) with aware (new data)
+                    position.created_at = to_wib(datetime.fromisoformat(pos_data['created_at']))
+                    position.closed_at = to_wib(datetime.fromisoformat(pos_data['closed_at'])) if pos_data['closed_at'] else None
                     position.pnl = pos_data.get('pnl', 0.0)
                     
                     self.positions[position.position_id] = position

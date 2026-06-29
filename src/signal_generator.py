@@ -146,14 +146,26 @@ class SignalGenerator:
             ema_50 = indicators['EMA_50']
             rsi = indicators['RSI_3']
             adx = indicators['ADX_55']
-            
-            # Calculate TP and SL based on risk:reward = 1:1
+
+            # Dynamic TP/SL based on ATR — menyesuaikan volatilitas market
+            atr = indicators.get('ATR')
+            if atr and atr > 0:
+                raw_sl = atr * Config.ATR_SL_MULT
+                raw_tp = atr * Config.ATR_TP_MULT
+                # Clamp dalam batas MIN/MAX agar tidak ekstrem
+                sl_dist = max(Config.MIN_SL, min(raw_sl, Config.MAX_SL))
+                tp_dist = max(Config.MIN_SL, min(raw_tp, Config.MAX_SL))
+            else:
+                # Fallback jika ATR belum tersedia
+                sl_dist = 3.0
+                tp_dist = 3.0
+
             if signal_type == 'BUY':
-                tp = current_price + Config.DEFAULT_TP
-                sl = current_price - Config.DEFAULT_SL
+                tp = current_price + tp_dist
+                sl = current_price - sl_dist
             else:  # SELL
-                tp = current_price - Config.DEFAULT_TP
-                sl = current_price + Config.DEFAULT_SL
+                tp = current_price - tp_dist
+                sl = current_price + sl_dist
                 
             signal = Signal(
                 signal_type=signal_type,

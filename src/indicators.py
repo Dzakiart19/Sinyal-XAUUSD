@@ -91,6 +91,28 @@ class TechnicalIndicators:
         return float(dx)
         
     @staticmethod
+    def calculate_atr(candles: List[Dict], period: int = 14) -> Optional[float]:
+        """Calculate Average True Range — ukuran volatilitas market"""
+        if len(candles) < period + 1:
+            return None
+
+        highs  = [c['high']  for c in candles]
+        lows   = [c['low']   for c in candles]
+        closes = [c['close'] for c in candles]
+
+        trs = []
+        for i in range(1, len(candles)):
+            tr = max(
+                highs[i]  - lows[i],
+                abs(highs[i]  - closes[i - 1]),
+                abs(lows[i]   - closes[i - 1]),
+            )
+            trs.append(tr)
+
+        atr = float(np.mean(trs[-period:]))
+        return atr
+
+    @staticmethod
     def calculate_sma(prices: List[float], period: int) -> float:
         """Calculate Simple Moving Average"""
         if len(prices) < period:
@@ -142,12 +164,17 @@ class TechnicalIndicators:
         # Current price
         indicators['CURRENT_PRICE'] = closes[-1] if closes else None
         indicators['PREV_PRICE'] = closes[-2] if len(closes) > 1 else None
-        
+
         # Previous RSI for signal detection
         if len(closes) >= Config.RSI_PERIOD + 2:
             prev_rsi = cls.calculate_rsi(closes[:-1], Config.RSI_PERIOD)
             indicators['PREV_RSI_3'] = prev_rsi
-        
+
+        # ATR — untuk dynamic TP/SL
+        atr = cls.calculate_atr(candles, Config.ATR_PERIOD)
+        if atr is not None:
+            indicators['ATR'] = atr
+
         return indicators
         
     @classmethod

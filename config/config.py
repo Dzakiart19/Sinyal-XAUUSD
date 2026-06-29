@@ -15,9 +15,12 @@ class Config:
     DERIV_WS_URL = os.getenv('DERIV_WS_URL', 'wss://ws.derivws.com/websockets/v3?app_id=1089')
     SYMBOL = 'frxXAUUSD'
 
-    # Risk Management
-    DEFAULT_TP = float(os.getenv('DEFAULT_TP', 3.0))
-    DEFAULT_SL = float(os.getenv('DEFAULT_SL', 3.0))
+    # Risk Management — ATR-based dynamic TP/SL
+    ATR_PERIOD     = int(os.getenv('ATR_PERIOD', 14))      # periode ATR
+    ATR_SL_MULT    = float(os.getenv('ATR_SL_MULT', 1.5))  # SL = ATR × 1.5
+    ATR_TP_MULT    = float(os.getenv('ATR_TP_MULT', 1.5))  # TP = ATR × 1.5 (RR 1:1)
+    MIN_SL         = float(os.getenv('MIN_SL', 1.0))       # minimum SL $1
+    MAX_SL         = float(os.getenv('MAX_SL', 10.0))      # maximum SL $10
 
     # Technical Indicators
     EMA_PERIOD = int(os.getenv('EMA_PERIOD', 50))

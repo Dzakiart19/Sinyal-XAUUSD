@@ -165,7 +165,7 @@ Bot sinyal scalping XAUUSD kini *AKTIF* dan siap beroperasi 24/7!
 📊 *Strategi:*
 • EMA 50, RSI 3, ADX 55
 • Timeframe: M1 & M5
-• Risk:Reward = 1:1 (TP: ${Config.DEFAULT_TP}, SL: ${Config.DEFAULT_SL})
+• Risk:Reward = 1:1 (TP/SL dinamis mengikuti ATR market)
 
 📱 *Perintah yang tersedia:*
 /dashboard - Lihat posisi aktif + live price
@@ -361,8 +361,8 @@ PnL: `{pnl_text}`
 
 ⚠️ *Risk Management:*
 Risk:Reward = 1:1
-Stop Loss: ${Config.DEFAULT_SL}
-Take Profit: ${Config.DEFAULT_TP}
+Stop Loss: ${signal.sl:.2f} (ATR-based)
+Take Profit: ${signal.tp:.2f} (ATR-based)
 
 🔄 *Status:* Akan dipantau otomatis...
             """
@@ -416,8 +416,8 @@ Silakan coba lagi nanti atau tunggu sinyal otomatis dari bot.
 ⚙️ *Pengaturan:*
 • Timeframe: M1 & M5
 • Risk:Reward = 1:1
-• TP: ${Config.DEFAULT_TP}
-• SL: ${Config.DEFAULT_SL}
+• TP/SL: Dinamis (ATR × {Config.ATR_TP_MULT})
+• ATR Period: {Config.ATR_PERIOD} candles
 • Filter ADX: > {Config.ADX_THRESHOLD}
 
 🔄 *Operasional:*
@@ -574,8 +574,8 @@ Hubungi admin jika ada masalah.
 
 ⚠️ *Risk Management:*
 Risk:Reward = 1:1
-Stop Loss: ${Config.DEFAULT_SL}
-Take Profit: ${Config.DEFAULT_TP}
+Stop Loss: ${signal.sl:.2f} (ATR-based)
+Take Profit: ${signal.tp:.2f} (ATR-based)
 
 🔄 *Status:* Akan dipantau otomatis...
             """

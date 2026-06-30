@@ -40,5 +40,5 @@ externalPort = 80
 ADMIN_USER_ID = "7390867903"
 
 [deployment]
-deploymentTarget = "vm"
+deploymentTarget = "cloudrun"
 run = ["python", "main.py"]

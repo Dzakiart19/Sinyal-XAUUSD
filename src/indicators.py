@@ -173,17 +173,88 @@ class TechnicalIndicators:
 
         return indicators
         
+    @staticmethod
+    def calculate_market_regime(candles: List[Dict]) -> Dict[str, float]:
+        """Market Regime Filter — deteksi trending vs ranging.
+
+        Bandingkan ADX periode pendek (20) vs panjang (60):
+        - ADX_short > ADX_long  → trend sedang MENGUAT   → boleh masuk
+        - ADX_short < ADX_long  → trend sedang MELEMAH   → skip
+        - ADX_slope > 0         → ADX sedang naik        → konfirmasi trending
+
+        Return dict berisi:
+          'adx_short'  : ADX periode pendek (20)
+          'adx_long'   : ADX periode panjang (60)
+          'adx_slope'  : perubahan ADX short 5 candle terakhir
+          'is_trending': True jika semua kondisi terpenuhi
+        """
+        short_p = Config.REGIME_ADX_SHORT  # 20
+        long_p  = Config.REGIME_ADX_LONG   # 60
+
+        if len(candles) < long_p + 1:
+            return {'adx_short': 0.0, 'adx_long': 0.0, 'adx_slope': 0.0, 'is_trending': False}
+
+        highs  = np.array([c['high']  for c in candles], dtype=float)
+        lows   = np.array([c['low']   for c in candles], dtype=float)
+        closes = np.array([c['close'] for c in candles], dtype=float)
+
+        def _adx_series(period, n_last=6):
+            tr1 = highs[1:] - lows[1:]
+            tr2 = np.abs(highs[1:] - closes[:-1])
+            tr3 = np.abs(lows[1:]  - closes[:-1])
+            tr  = np.maximum(np.maximum(tr1, tr2), tr3)
+            up  = highs[1:] - highs[:-1]
+            dn  = lows[:-1] - lows[1:]
+            pdm = np.where((up > dn) & (up > 0), up, 0.0)
+            mdm = np.where((dn > up) & (dn > 0), dn, 0.0)
+            a   = 1.0 / period
+            tr_s  = pd.Series(tr).ewm(alpha=a, adjust=False).mean().values
+            pdm_s = pd.Series(pdm).ewm(alpha=a, adjust=False).mean().values
+            mdm_s = pd.Series(mdm).ewm(alpha=a, adjust=False).mean().values
+            with np.errstate(divide='ignore', invalid='ignore'):
+                pdi = np.where(tr_s != 0, 100.0 * pdm_s / tr_s, 0.0)
+                mdi = np.where(tr_s != 0, 100.0 * mdm_s / tr_s, 0.0)
+                ds  = pdi + mdi
+                dx  = np.where(ds != 0, 100.0 * np.abs(pdi - mdi) / ds, 0.0)
+            adx_vals = pd.Series(dx).ewm(alpha=a, adjust=False).mean().values
+            return adx_vals[-n_last:]   # kembalikan n nilai terakhir untuk slope
+
+        short_vals = _adx_series(short_p, n_last=6)
+        long_vals  = _adx_series(long_p,  n_last=2)
+
+        adx_short = float(short_vals[-1])
+        adx_long  = float(long_vals[-1])
+        adx_slope = float(short_vals[-1] - short_vals[-4])  # perubahan 3 candle terakhir
+
+        is_trending = (
+            adx_short > adx_long and          # trend menguat
+            adx_slope >= Config.REGIME_MIN_SLOPE  # arah naik (atau minimal datar)
+        )
+
+        return {
+            'adx_short':   adx_short,
+            'adx_long':    adx_long,
+            'adx_slope':   adx_slope,
+            'is_trending': is_trending,
+        }
+
     @classmethod
     def analyze_market_condition(cls, indicators: Dict[str, float]) -> str:
         """Analyze current market condition"""
         if not indicators or 'ADX_55' not in indicators:
             return 'NO_SIGNAL'
-            
+
         adx = indicators['ADX_55']
-        
+
         if adx <= Config.ADX_THRESHOLD:
             return 'NO_TREND'
-        elif adx > 30 and adx <= 50:
+
+        # Market Regime Filter — cek apakah trend sedang menguat
+        regime = indicators.get('MARKET_REGIME', {})
+        if regime and not regime.get('is_trending', True):
+            return 'RANGING'
+
+        if adx > 30 and adx <= 50:
             return 'TRENDING'
         else:
             return 'STRONG_TREND'

@@ -45,6 +45,14 @@ class Config:
     RSI_EXIT_OVERSOLD = 20   # [optimized dari 25→20]
     RSI_EXIT_OVERBOUGHT = 80  # [optimized dari 75→80]
 
+    # Market Regime Filter — deteksi trending vs ranging
+    # ADX M1 jangka pendek (20 candle) vs jangka panjang (60 candle)
+    # Jika ADX pendek > ADX panjang → pasar sedang TRENDING → boleh masuk
+    # Jika ADX pendek < ADX panjang → pasar sedang RANGING → skip sinyal
+    REGIME_ADX_SHORT = int(os.getenv('REGIME_ADX_SHORT', 20))   # ADX periode pendek
+    REGIME_ADX_LONG  = int(os.getenv('REGIME_ADX_LONG',  60))   # ADX periode panjang
+    REGIME_MIN_SLOPE = float(os.getenv('REGIME_MIN_SLOPE', 0.0)) # slope minimum ADX (naik)
+
     # File paths
     DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
     LOGS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')

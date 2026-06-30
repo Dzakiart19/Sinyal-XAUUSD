@@ -19,8 +19,8 @@ class Config:
 
     # Risk Management — ATR-based dynamic TP/SL
     ATR_PERIOD     = int(os.getenv('ATR_PERIOD', 14))      # periode ATR
-    ATR_SL_MULT    = float(os.getenv('ATR_SL_MULT', 1.5))  # SL = ATR × 1.5
-    ATR_TP_MULT    = float(os.getenv('ATR_TP_MULT', 1.5))  # TP = ATR × 1.5 (RR 1:1)
+    ATR_SL_MULT    = float(os.getenv('ATR_SL_MULT', 1.0))  # SL = ATR × 1.0  [optimized]
+    ATR_TP_MULT    = float(os.getenv('ATR_TP_MULT', 3.0))  # TP = ATR × 3.0  (RR 3:1) [optimized]
     MIN_SL         = float(os.getenv('MIN_SL', 1.0))       # minimum SL $1
     MAX_SL         = float(os.getenv('MAX_SL', 10.0))      # maximum SL $10
 
@@ -28,7 +28,7 @@ class Config:
     EMA_PERIOD = int(os.getenv('EMA_PERIOD', 50))
     RSI_PERIOD = int(os.getenv('RSI_PERIOD', 3))
     ADX_PERIOD = int(os.getenv('ADX_PERIOD', 55))
-    ADX_THRESHOLD = int(os.getenv('ADX_THRESHOLD', 50))
+    ADX_THRESHOLD = int(os.getenv('ADX_THRESHOLD', 65))  # [optimized dari 50→65]
 
     # Timeframes
     M1_CANDLE_COUNT = int(os.getenv('M1_CANDLE_COUNT', 100))
@@ -42,8 +42,8 @@ class Config:
     # Signal Settings
     RSI_OVERSOLD = 20
     RSI_OVERBOUGHT = 80
-    RSI_EXIT_OVERSOLD = 25
-    RSI_EXIT_OVERBOUGHT = 75
+    RSI_EXIT_OVERSOLD = 20   # [optimized dari 25→20]
+    RSI_EXIT_OVERBOUGHT = 80  # [optimized dari 75→80]
 
     # File paths
     DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')

@@ -399,22 +399,25 @@ PnL: `{pnl_text}`
             candles = self.ws_client.get_candles(signal.timeframe)
             chart_bytes: Optional[bytes] = None
             if len(candles) >= 10:
+                _sig = signal  # capture for lambda
                 try:
                     loop = asyncio.get_event_loop()
                     chart_bytes = await loop.run_in_executor(
                         None,
                         lambda: generate_signal_chart(
                             candles=candles,
-                            signal_type=signal.signal_type,
-                            entry_price=signal.entry_price,
-                            tp=signal.tp,
-                            sl=signal.sl,
-                            timeframe=signal.timeframe,
+                            signal_type=_sig.signal_type,
+                            entry_price=_sig.entry_price,
+                            tp=_sig.tp,
+                            sl=_sig.sl,
+                            timeframe=_sig.timeframe,
                             signal_label='MANUAL',
                             ema_period=Config.EMA_PERIOD,
                             rsi_period=Config.RSI_PERIOD,
                             adx_period=Config.ADX_PERIOD,
                             adx_threshold=Config.ADX_THRESHOLD,
+                            actual_rsi=_sig.rsi,
+                            actual_adx=_sig.adx,
                         )
                     )
                 except Exception as chart_err:
@@ -647,22 +650,25 @@ Hubungi admin jika ada masalah.
             candles = self.ws_client.get_candles(signal.timeframe)
             chart_bytes: Optional[bytes] = None
             if len(candles) >= 10:
+                _sig = signal  # capture for lambda
                 try:
                     loop = asyncio.get_event_loop()
                     chart_bytes = await loop.run_in_executor(
                         None,
                         lambda: generate_signal_chart(
                             candles=candles,
-                            signal_type=signal.signal_type,
-                            entry_price=signal.entry_price,
-                            tp=signal.tp,
-                            sl=signal.sl,
-                            timeframe=signal.timeframe,
+                            signal_type=_sig.signal_type,
+                            entry_price=_sig.entry_price,
+                            tp=_sig.tp,
+                            sl=_sig.sl,
+                            timeframe=_sig.timeframe,
                             signal_label='AUTO',
                             ema_period=Config.EMA_PERIOD,
                             rsi_period=Config.RSI_PERIOD,
                             adx_period=Config.ADX_PERIOD,
                             adx_threshold=Config.ADX_THRESHOLD,
+                            actual_rsi=_sig.rsi,
+                            actual_adx=_sig.adx,
                         )
                     )
                 except Exception as chart_err:

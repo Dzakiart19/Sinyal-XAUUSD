@@ -186,35 +186,31 @@ def calc_market_regime(candles: List[Dict]) -> bool:
 
 def check_buy(closes: List[float], candles: List[Dict]) -> Tuple[bool, Dict]:
     ind = {}
-    ind['ema']    = calc_ema(closes, EMA_PERIOD)
-    ind['rsi']    = calc_rsi(closes, RSI_PERIOD)
-    ind['prsi']   = calc_rsi(closes[:-1], RSI_PERIOD)
-    ind['adx']    = calc_adx(candles, ADX_PERIOD)
-    ind['regime'] = calc_market_regime(candles)
-    if any(v is None for k, v in ind.items() if k != 'regime'):
+    ind['ema']  = calc_ema(closes, EMA_PERIOD)
+    ind['rsi']  = calc_rsi(closes, RSI_PERIOD)
+    ind['prsi'] = calc_rsi(closes[:-1], RSI_PERIOD)
+    ind['adx']  = calc_adx(candles, ADX_PERIOD)
+    if any(v is None for v in ind.values()):
         return False, ind
     price_above_ema      = closes[-1] > ind['ema']
     rsi_exiting_oversold = ind['prsi'] <= RSI_EXIT_OS and ind['rsi'] > RSI_EXIT_OS
     adx_ok               = ind['adx'] > ADX_THRESH
     rsi_range            = RSI_EXIT_OS <= ind['rsi'] <= 50
-    trending             = ind['regime']
-    return (price_above_ema and rsi_exiting_oversold and adx_ok and rsi_range and trending), ind
+    return (price_above_ema and rsi_exiting_oversold and adx_ok and rsi_range), ind
 
 def check_sell(closes: List[float], candles: List[Dict]) -> Tuple[bool, Dict]:
     ind = {}
-    ind['ema']    = calc_ema(closes, EMA_PERIOD)
-    ind['rsi']    = calc_rsi(closes, RSI_PERIOD)
-    ind['prsi']   = calc_rsi(closes[:-1], RSI_PERIOD)
-    ind['adx']    = calc_adx(candles, ADX_PERIOD)
-    ind['regime'] = calc_market_regime(candles)
-    if any(v is None for k, v in ind.items() if k != 'regime'):
+    ind['ema']  = calc_ema(closes, EMA_PERIOD)
+    ind['rsi']  = calc_rsi(closes, RSI_PERIOD)
+    ind['prsi'] = calc_rsi(closes[:-1], RSI_PERIOD)
+    ind['adx']  = calc_adx(candles, ADX_PERIOD)
+    if any(v is None for v in ind.values()):
         return False, ind
     price_below_ema        = closes[-1] < ind['ema']
     rsi_exiting_overbought = ind['prsi'] >= RSI_EXIT_OB and ind['rsi'] < RSI_EXIT_OB
     adx_ok                 = ind['adx'] > ADX_THRESH
     rsi_range              = 50 <= ind['rsi'] <= RSI_EXIT_OB
-    trending               = ind['regime']
-    return (price_below_ema and rsi_exiting_overbought and adx_ok and rsi_range and trending), ind
+    return (price_below_ema and rsi_exiting_overbought and adx_ok and rsi_range), ind
 
 
 # ─── Backtest Engine ───────────────────────────────────────────────────────────

@@ -118,8 +118,8 @@ class SignalGenerator:
             # Check market condition
             market_condition = self.indicators.analyze_market_condition(indicators)
 
-            # Skip jika pasar tidak trending (ADX lemah atau regime ranging)
-            if market_condition in ('NO_TREND', 'NO_SIGNAL', 'RANGING'):
+            # Skip jika ADX lemah atau tidak ada data (RANGING tetap lanjut)
+            if market_condition in ('NO_TREND', 'NO_SIGNAL'):
                 return
                 
             # Check for signals
@@ -266,8 +266,8 @@ class SignalGenerator:
                 # Check market condition
                 market_condition = self.indicators.analyze_market_condition(indicators)
 
-                # Skip jika pasar tidak trending (ADX lemah atau regime ranging)
-                if market_condition in ('NO_TREND', 'NO_SIGNAL', 'RANGING'):
+                # Skip jika ADX lemah atau tidak ada data (RANGING tetap lanjut)
+                if market_condition in ('NO_TREND', 'NO_SIGNAL'):
                     continue
                     
                 # Check for signals

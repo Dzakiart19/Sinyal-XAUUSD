@@ -55,6 +55,9 @@ class DerivWebSocketClient:
         except Exception as e:
             logger.error(f"Failed to connect: {e}")
             self.is_connected = False
+            # Jika gagal connect pertama kali, mulai reconnect loop
+            # supaya bot tidak hang selamanya di startup
+            asyncio.create_task(self._reconnect())
             
     async def disconnect(self):
         """Disconnect from WebSocket"""
@@ -76,6 +79,9 @@ class DerivWebSocketClient:
         except Exception as e:
             logger.error(f"Error in listen: {e}")
             self.is_connected = False
+            # Semua exception terminal di listener harus memicu reconnect,
+            # bukan hanya ConnectionClosed — cegah data-feed loss permanen
+            await self._reconnect()
             
     async def _reconnect(self):
         """Reconnect on connection loss — guarded to prevent concurrent reconnect tasks"""

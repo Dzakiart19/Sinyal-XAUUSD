@@ -1,0 +1,3 @@
+- [Market Regime Filter wiring](market-regime-filter.md) — filter ada di indicators.py tapi harus dipanggil di calculate_all_indicators() agar aktif; signal_generator harus filter 'RANGING' bukan hanya 'NO_TREND'
+- [WebSocket reconnect gaps](ws-reconnect-gaps.md) — connect() harus start _reconnect() task saat gagal; _listen() harus reconnect pada SEMUA exception, bukan hanya ConnectionClosed
+- [Bot architecture summary](bot-architecture.md) — XAUUSD scalping bot: Deriv WS → candles → SignalGenerator → PositionTracker → Telegram; JSON persistence di /data dengan atomic write

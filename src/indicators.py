@@ -171,6 +171,15 @@ class TechnicalIndicators:
         if atr is not None:
             indicators['ATR'] = atr
 
+        # Market Regime Filter — wajib ada cukup candle untuk ADX periode panjang (60)
+        if len(candles) >= Config.REGIME_ADX_LONG + 1:
+            regime = cls.calculate_market_regime(candles)
+            indicators['MARKET_REGIME'] = regime
+        else:
+            # Belum cukup data — anggap trending supaya tidak memblokir sinyal awal
+            indicators['MARKET_REGIME'] = {'is_trending': True, 'adx_short': 0.0,
+                                           'adx_long': 0.0, 'adx_slope': 0.0}
+
         return indicators
         
     @staticmethod

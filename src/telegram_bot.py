@@ -52,10 +52,18 @@ class XAUUSDBot:
             # Initialize WebSocket connection
             await self.ws_client.connect()
 
-            # Wait for WebSocket to be ready
+            # Wait for WebSocket to be ready — dengan timeout 120 detik
+            # supaya bot tidak hang selamanya jika koneksi gagal total
+            waited = 0
             while not self.ws_client.is_ready():
-                logger.info("Waiting for WebSocket to be ready...")
+                if waited >= 120:
+                    raise RuntimeError(
+                        "WebSocket tidak siap setelah 120 detik. "
+                        "Periksa koneksi internet atau status Deriv API."
+                    )
+                logger.info(f"Waiting for WebSocket to be ready... ({waited}s)")
                 await asyncio.sleep(2)
+                waited += 2
 
             # Start signal generator
             await self.signal_generator.start()
@@ -168,7 +176,7 @@ Bot sinyal scalping XAUUSD kini *AKTIF* dan siap beroperasi 24/7!
 📊 *Strategi:*
 • EMA 50, RSI 3, ADX 55
 • Timeframe: M1 & M5
-• Risk:Reward = 1:1 (TP/SL dinamis mengikuti ATR market)
+• Risk:Reward = 1:3 (TP/SL dinamis mengikuti ATR market)
 
 📱 *Perintah yang tersedia:*
 /dashboard - Lihat posisi aktif + live price
@@ -375,7 +383,7 @@ PnL: `{pnl_text}`
 🕐 *Waktu:* {signal.timestamp.strftime('%Y-%m-%d %H:%M:%S')} WIB
 
 ⚠️ *Risk Management:*
-Risk:Reward = 1:1
+Risk:Reward = 1:{Config.ATR_TP_MULT:.0f} (SL×{Config.ATR_SL_MULT} / TP×{Config.ATR_TP_MULT})
 Stop Loss: ${signal.sl:.2f} (ATR-based)
 Take Profit: ${signal.tp:.2f} (ATR-based)
 
@@ -393,15 +401,16 @@ Take Profit: ${signal.tp:.2f} (ATR-based)
                                    reply_markup=reply_markup)
             
         else:
-            await wait_msg.edit_text("""
+            await wait_msg.edit_text(f"""
 ❌ *TIDAK ADA SINYAL*
 
 Saat ini tidak ada kondisi yang memenuhi kriteria sinyal.
 
 Kondisi yang dicari:
 • Harga di atas/bawah EMA 50
-• RSI keluar dari zona overbought/oversold
-• ADX > 30 (trend cukup kuat)
+• RSI(3) crossover dari zona overbought/oversold
+• ADX({Config.ADX_PERIOD}) > {Config.ADX_THRESHOLD} (trend sangat kuat)
+• Market Regime: pasar sedang trending (bukan ranging)
 
 Silakan coba lagi nanti atau tunggu sinyal otomatis dari bot.
             """, parse_mode='Markdown')
@@ -420,20 +429,23 @@ Silakan coba lagi nanti atau tunggu sinyal otomatis dari bot.
 
 🟢 *BUY:*
 1. Harga di atas EMA 50
-2. RSI keluar dari oversold (±20-25)
-3. ADX > 30 (trend cukup kuat)
+2. RSI(3) crossover ↑ keluar dari oversold (< {Config.RSI_EXIT_OVERSOLD})
+3. ADX({Config.ADX_PERIOD}) > {Config.ADX_THRESHOLD} (trend kuat)
+4. Market Regime: ADX pendek > ADX panjang (trend menguat)
 
 🔴 *SELL:*
 1. Harga di bawah EMA 50
-2. RSI keluar dari overbought (±75-80)
-3. ADX > 30 (trend cukup kuat)
+2. RSI(3) crossover ↓ keluar dari overbought (> {Config.RSI_EXIT_OVERBOUGHT})
+3. ADX({Config.ADX_PERIOD}) > {Config.ADX_THRESHOLD} (trend kuat)
+4. Market Regime: ADX pendek > ADX panjang (trend menguat)
 
 ⚙️ *Pengaturan:*
 • Timeframe: M1 & M5
-• Risk:Reward = 1:1
-• TP/SL: Dinamis (ATR × {Config.ATR_TP_MULT})
+• Risk:Reward = 1:{Config.ATR_TP_MULT:.0f}
+• SL: ATR × {Config.ATR_SL_MULT} | TP: ATR × {Config.ATR_TP_MULT}
 • ATR Period: {Config.ATR_PERIOD} candles
 • Filter ADX: > {Config.ADX_THRESHOLD}
+• Regime Filter: ADX({Config.REGIME_ADX_SHORT}) vs ADX({Config.REGIME_ADX_LONG})
 
 🔄 *Operasional:*
 • Bot berjalan 24/7 nonstop
@@ -595,7 +607,7 @@ Hubungi admin jika ada masalah.
 🕐 *Waktu:* {signal.timestamp.strftime('%Y-%m-%d %H:%M:%S')} WIB
 
 ⚠️ *Risk Management:*
-Risk:Reward = 1:1
+Risk:Reward = 1:{Config.ATR_TP_MULT:.0f} (SL×{Config.ATR_SL_MULT} / TP×{Config.ATR_TP_MULT})
 Stop Loss: ${signal.sl:.2f} (ATR-based)
 Take Profit: ${signal.tp:.2f} (ATR-based)
 

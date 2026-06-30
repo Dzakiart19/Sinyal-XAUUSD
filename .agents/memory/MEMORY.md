@@ -1,3 +1,6 @@
-- [Market Regime Filter wiring](market-regime-filter.md) — filter ada di indicators.py tapi harus dipanggil di calculate_all_indicators() agar aktif; signal_generator harus filter 'RANGING' bukan hanya 'NO_TREND'
-- [WebSocket reconnect gaps](ws-reconnect-gaps.md) — connect() harus start _reconnect() task saat gagal; _listen() harus reconnect pada SEMUA exception, bukan hanya ConnectionClosed
+- [Market Regime Filter wiring](market-regime-filter.md) — filter ada di indicators.py tapi harus dipanggil di calculate_all_indicators(); signal_generator harus filter 'RANGING' di KEDUA path (auto + manual)
+- [WebSocket reconnect gaps](ws-reconnect-gaps.md) — _listen() harus reconnect pada SEMUA exit path (clean, ConnectionClosed, exception) — letakkan reconnect setelah try/except, bukan di dalam masing-masing except
 - [Bot architecture summary](bot-architecture.md) — XAUUSD scalping bot: Deriv WS → candles → SignalGenerator → PositionTracker → Telegram; JSON persistence di /data dengan atomic write
+- [TP/SL clamping bounds](tp-sl-bounds.md) — TP dan SL harus diklem ke range BERBEDA: MIN_TP/MAX_TP vs MIN_SL/MAX_SL; menggunakan MIN_SL untuk TP merusak R:R 1:3
+- [Position ID uniqueness](position-id.md) — ID posisi harus pakai UUID suffix untuk cegah collision jika 2 posisi dibuka dalam detik yang sama
+- [UserManager cleanup task timing](user-manager-cleanup.md) — _start_cleanup_task() di __init__ tidak bisa start task karena event loop belum running; harus ada start_cleanup() yang dipanggil dari XAUUSDBot.start()

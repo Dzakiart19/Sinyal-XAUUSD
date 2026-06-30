@@ -118,8 +118,9 @@ class SignalGenerator:
             # Check market condition
             market_condition = self.indicators.analyze_market_condition(indicators)
 
-            # Skip jika ADX lemah atau tidak ada data (RANGING tetap lanjut)
-            if market_condition in ('NO_TREND', 'NO_SIGNAL'):
+            # Skip jika ADX lemah, tidak ada data, ATAU pasar ranging
+            # Bug fix: RANGING harus difilter — sinyal di pasar ranging tidak valid
+            if market_condition in ('NO_TREND', 'NO_SIGNAL', 'RANGING'):
                 return
                 
             # Check for signals
@@ -157,9 +158,10 @@ class SignalGenerator:
             if atr and atr > 0:
                 raw_sl = atr * Config.ATR_SL_MULT
                 raw_tp = atr * Config.ATR_TP_MULT
-                # Clamp dalam batas MIN/MAX agar tidak ekstrem
+                # Clamp dalam batas MIN/MAX masing-masing — SL dan TP punya range sendiri
+                # Bug fix: tp_dist harus pakai MIN_TP/MAX_TP, bukan MIN_SL/MAX_SL
                 sl_dist = max(Config.MIN_SL, min(raw_sl, Config.MAX_SL))
-                tp_dist = max(Config.MIN_SL, min(raw_tp, Config.MAX_SL))
+                tp_dist = max(Config.MIN_TP, min(raw_tp, Config.MAX_TP))
             else:
                 # Fallback jika ATR belum tersedia
                 sl_dist = 3.0
@@ -266,8 +268,9 @@ class SignalGenerator:
                 # Check market condition
                 market_condition = self.indicators.analyze_market_condition(indicators)
 
-                # Skip jika ADX lemah atau tidak ada data (RANGING tetap lanjut)
-                if market_condition in ('NO_TREND', 'NO_SIGNAL'):
+                # Skip jika ADX lemah, tidak ada data, ATAU pasar ranging
+                # Bug fix: RANGING harus difilter juga di generate_manual_signal
+                if market_condition in ('NO_TREND', 'NO_SIGNAL', 'RANGING'):
                     continue
                     
                 # Check for signals

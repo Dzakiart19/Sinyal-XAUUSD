@@ -71,6 +71,9 @@ class XAUUSDBot:
             # Start position tracking
             await self.position_tracker.start_tracking()
 
+            # Bug fix: pastikan UserManager cleanup task jalan setelah event loop aktif
+            self.user_manager.start_cleanup()
+
             # Set up command handlers
             self._setup_handlers()
 
@@ -134,6 +137,7 @@ class XAUUSDBot:
 
             # Stop components
             await self.signal_generator.stop()
+            await self.position_tracker.stop_tracking()  # Bug fix: hentikan tracking loop
             await self.ws_client.disconnect()
 
             # Stop bot

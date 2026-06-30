@@ -3,6 +3,7 @@ import json
 import websockets
 import logging
 import os
+from collections import deque
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Callable, Any
 from config.config import Config
@@ -20,7 +21,7 @@ class DerivWebSocketClient:
             'M1': [],
             'M5': []
         }
-        self.tick_data = []
+        self.tick_data: deque = deque(maxlen=1000)  # Bug fix: deque O(1) vs list pop(0) O(n)
         self.last_tick = None
         self.callbacks = {}
         self.history_fetched = False
@@ -72,16 +73,16 @@ class DerivWebSocketClient:
             async for message in self.websocket:
                 data = json.loads(message)
                 await self._handle_message(data)
+            # Bug fix: stream berakhir TANPA exception (clean close dari server)
+            # juga harus memicu reconnect — tanpa ini bot kehilangan data-feed selamanya
+            logger.warning("WebSocket stream ended (clean close), reconnecting...")
         except websockets.exceptions.ConnectionClosed:
             logger.warning("WebSocket connection closed")
-            self.is_connected = False
-            await self._reconnect()
         except Exception as e:
             logger.error(f"Error in listen: {e}")
-            self.is_connected = False
-            # Semua exception terminal di listener harus memicu reconnect,
-            # bukan hanya ConnectionClosed — cegah data-feed loss permanen
-            await self._reconnect()
+        # Semua exit path (clean, ConnectionClosed, exception) memicu reconnect
+        self.is_connected = False
+        await self._reconnect()
             
     async def _reconnect(self):
         """Reconnect on connection loss — guarded to prevent concurrent reconnect tasks"""
@@ -111,10 +112,7 @@ class DerivWebSocketClient:
                     'datetime': datetime.fromtimestamp(tick['epoch'])
                 }
                 self.tick_data.append(self.last_tick)
-                
-                # Keep only last 1000 ticks
-                if len(self.tick_data) > 1000:
-                    self.tick_data.pop(0)
+                # deque(maxlen=1000) otomatis drop entri terlama — tidak perlu pop manual
                     
                 # Trigger callback for tick updates
                 if 'tick_update' in self.callbacks:

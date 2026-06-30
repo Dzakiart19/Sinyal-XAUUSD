@@ -2,6 +2,8 @@ import asyncio
 import logging
 import json
 import os
+import uuid
+from collections import deque
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from enum import Enum
@@ -32,7 +34,8 @@ class Position:
         self.created_at = now_wib()
         self.closed_at = None
         self.pnl = 0.0
-        self.position_id = f"{user_id}_{int(self.created_at.timestamp())}"
+        # Bug fix: gunakan UUID untuk hindari collision jika 2 posisi dibuka dalam 1 detik
+        self.position_id = f"{user_id}_{int(self.created_at.timestamp())}_{uuid.uuid4().hex[:8]}"
         
     def update_pnl(self, current_price: float):
         """Update PnL based on current price"""
@@ -83,7 +86,7 @@ class PositionTracker:
         self.stats_manager = None  # Bug #2 fix: injected, not re-created per close
         self.is_tracking = False
         self.tracking_task = None
-        self.price_history: List[float] = []
+        self.price_history: deque = deque(maxlen=100)  # Bug fix: deque O(1) vs list pop(0) O(n)
         
         # File for persistence
         self.data_file = os.path.join(Config.DATA_DIR, 'positions.json')
@@ -181,10 +184,8 @@ class PositionTracker:
                     current_price = self.ws_client.get_latest_price()
                     
                     if current_price:
-                        # Update price history
+                        # Update price history — deque(maxlen=100) drop otomatis
                         self.price_history.append(current_price)
-                        if len(self.price_history) > 100:
-                            self.price_history.pop(0)
                             
                         # Check all active positions
                         active_positions = self.get_active_positions()

@@ -21,8 +21,10 @@ class Config:
     ATR_PERIOD     = int(os.getenv('ATR_PERIOD', 14))      # periode ATR
     ATR_SL_MULT    = float(os.getenv('ATR_SL_MULT', 1.0))  # SL = ATR × 1.0  [optimized]
     ATR_TP_MULT    = float(os.getenv('ATR_TP_MULT', 3.0))  # TP = ATR × 3.0  (RR 3:1) [optimized]
-    MIN_SL         = float(os.getenv('MIN_SL', 1.0))       # minimum SL $1
-    MAX_SL         = float(os.getenv('MAX_SL', 10.0))      # maximum SL $10
+    MIN_SL         = float(os.getenv('MIN_SL', 1.0))        # minimum SL $1
+    MAX_SL         = float(os.getenv('MAX_SL', 10.0))       # maximum SL $10
+    MIN_TP         = float(os.getenv('MIN_TP', 1.0))        # minimum TP $1
+    MAX_TP         = float(os.getenv('MAX_TP', 30.0))       # maximum TP $30 (3× MAX_SL untuk R:R 1:3)
 
     # Technical Indicators
     EMA_PERIOD = int(os.getenv('EMA_PERIOD', 50))

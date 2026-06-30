@@ -181,13 +181,27 @@ class UserManager:
         }
         
     def _start_cleanup_task(self):
-        """Start periodic cleanup task — safe for both sync and async contexts"""
+        """Start periodic cleanup task jika event loop sudah berjalan.
+        
+        Bug fix: jika dipanggil dari __init__ sebelum event loop aktif,
+        cukup catat — caller (XAUUSDBot.start) harus panggil start_cleanup() setelah loop running.
+        """
         try:
             loop = asyncio.get_running_loop()
             loop.create_task(self._cleanup_loop())
+            logger.debug("UserManager cleanup task started")
         except RuntimeError:
-            # No running event loop — task will be started lazily on first async call
-            logger.debug("No running event loop — cleanup task deferred")
+            # Event loop belum jalan — XAUUSDBot.start() harus panggil start_cleanup()
+            logger.debug("No running event loop — cleanup task deferred, call start_cleanup() later")
+
+    def start_cleanup(self):
+        """Panggil ini dari async context (setelah event loop berjalan) untuk memastikan cleanup aktif."""
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._cleanup_loop())
+            logger.info("UserManager cleanup task started (deferred)")
+        except RuntimeError:
+            logger.warning("start_cleanup() dipanggil tapi event loop tidak berjalan")
         
     async def _cleanup_loop(self):
         """Periodically cleanup inactive users"""

@@ -28,7 +28,7 @@ class Config:
     EMA_PERIOD = int(os.getenv('EMA_PERIOD', 50))
     RSI_PERIOD = int(os.getenv('RSI_PERIOD', 3))
     ADX_PERIOD = int(os.getenv('ADX_PERIOD', 55))
-    ADX_THRESHOLD = int(os.getenv('ADX_THRESHOLD', 30))
+    ADX_THRESHOLD = int(os.getenv('ADX_THRESHOLD', 50))
 
     # Timeframes
     M1_CANDLE_COUNT = int(os.getenv('M1_CANDLE_COUNT', 100))

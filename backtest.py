@@ -22,7 +22,7 @@ from config.config import Config
 EMA_PERIOD    = Config.EMA_PERIOD      # 50
 RSI_PERIOD    = Config.RSI_PERIOD      # 3
 ADX_PERIOD    = Config.ADX_PERIOD      # 55
-ADX_THRESH    = Config.ADX_THRESHOLD   # 30
+ADX_THRESH    = Config.ADX_THRESHOLD   # 50 (diubah dari 30 — hasil backtest)
 ATR_PERIOD    = Config.ATR_PERIOD      # 14
 ATR_TP_MULT   = Config.ATR_TP_MULT     # 1.5
 ATR_SL_MULT   = Config.ATR_SL_MULT     # 1.5

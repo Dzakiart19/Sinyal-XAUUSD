@@ -6,7 +6,7 @@
       "first_name": null,
       "is_active": true,
       "created_at": "2025-12-30T22:02:37.954576",
-      "last_activity": "2025-12-31T07:57:30.887874",
+      "last_activity": "2026-06-30T01:12:45.902281",
       "preferences": {
         "auto_signals": true,
         "manual_signals": true,
@@ -26,7 +26,7 @@
       "first_name": null,
       "is_active": true,
       "created_at": "2026-06-29T23:01:54.476213",
-      "last_activity": "2026-06-30T01:07:13.944786",
+      "last_activity": "2026-06-30T01:12:45.111302",
       "preferences": {
         "auto_signals": true,
         "manual_signals": true,
@@ -41,5 +41,5 @@
       }
     }
   ],
-  "last_save": "2026-06-30T01:07:13.944801"
+  "last_save": "2026-06-30T01:12:45.902304"
 }

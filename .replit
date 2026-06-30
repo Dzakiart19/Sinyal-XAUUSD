@@ -37,5 +37,8 @@ externalPort = 80
 [userenv]
 
 [userenv.shared]
-TELEGRAM_BOT_TOKEN = "8510629348:AAFjL9UJDu_PkB7gD9V0wjE-_oOhFkNK5CA"
 ADMIN_USER_ID = "7390867903"
+
+[deployment]
+deploymentTarget = "vm"
+run = ["python", "main.py"]

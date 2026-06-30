@@ -1,4 +1,5 @@
 import asyncio
+import io
 import logging
 import json
 from datetime import datetime, timedelta
@@ -10,6 +11,7 @@ from aiohttp import web
 
 from .websocket_client import DerivWebSocketClient
 from .signal_generator import SignalGenerator, Signal
+from .chart_generator import generate_signal_chart
 from .position_tracker import PositionTracker
 from .user_manager import UserManager
 from .statistics import StatisticsManager
@@ -358,7 +360,7 @@ PnL: `{pnl_text}`
         
         if signal:
             # Create position for tracking
-            position = self.position_tracker.create_position(
+            self.position_tracker.create_position(
                 user_id=user_id,
                 signal_type=signal.signal_type,
                 entry_price=signal.entry_price,
@@ -367,42 +369,72 @@ PnL: `{pnl_text}`
                 timeframe=signal.timeframe,
                 is_manual=True
             )
-            
-            # Format signal message
-            signal_text = f"""
-🎯 *SINYAL MANUAL*
 
-{'🟢 BUY' if signal.signal_type == 'BUY' else '🔴 SELL'} *XAUUSD*
+            # Format signal message (caption limit 1024 chars)
+            signal_text = (
+                f"🎯 *SINYAL MANUAL*\n\n"
+                f"{'🟢 BUY' if signal.signal_type == 'BUY' else '🔴 SELL'} *XAUUSD*\n\n"
+                f"💰 *Entry:* ${signal.entry_price:.2f}\n"
+                f"🎯 *TP:* ${signal.tp:.2f}\n"
+                f"🛑 *SL:* ${signal.sl:.2f}\n\n"
+                f"📊 *Indikator:*\n"
+                f"• EMA {Config.EMA_PERIOD}: ${signal.ema_50:.2f}\n"
+                f"• RSI {Config.RSI_PERIOD}: {signal.rsi:.2f}\n"
+                f"• ADX {Config.ADX_PERIOD}: {signal.adx:.2f}\n\n"
+                f"⏰ *Timeframe:* {signal.timeframe}\n"
+                f"🕐 *Waktu:* {signal.timestamp.strftime('%Y-%m-%d %H:%M:%S')} WIB\n\n"
+                f"⚠️ *Risk Management:*\n"
+                f"R:R = 1:{Config.ATR_TP_MULT:.0f}  |  "
+                f"SL ${signal.sl:.2f} / TP ${signal.tp:.2f} (ATR-based)\n\n"
+                f"🔄 *Status:* Akan dipantau otomatis..."
+            )
 
-💰 *Entry:* ${signal.entry_price:.2f}
-🎯 *TP:* ${signal.tp:.2f}
-🛑 *SL:* ${signal.sl:.2f}
-
-📊 *Indikator:*
-• EMA 50: ${signal.ema_50:.2f}
-• RSI 3: {signal.rsi:.2f}
-• ADX 55: {signal.adx:.2f}
-
-⏰ *Timeframe:* {signal.timeframe}
-🕐 *Waktu:* {signal.timestamp.strftime('%Y-%m-%d %H:%M:%S')} WIB
-
-⚠️ *Risk Management:*
-Risk:Reward = 1:{Config.ATR_TP_MULT:.0f} (SL×{Config.ATR_SL_MULT} / TP×{Config.ATR_TP_MULT})
-Stop Loss: ${signal.sl:.2f} (ATR-based)
-Take Profit: ${signal.tp:.2f} (ATR-based)
-
-🔄 *Status:* Akan dipantau otomatis...
-            """
-            
             keyboard = [
                 [InlineKeyboardButton("📊 Lihat Posisi", callback_data='view_position')],
                 [InlineKeyboardButton("🗑️ Hapus Sinyal", callback_data='delete_signal')]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            
-            await wait_msg.edit_text(signal_text, 
-                                   parse_mode='Markdown',
-                                   reply_markup=reply_markup)
+
+            # Generate chart
+            candles = self.ws_client.get_candles(signal.timeframe)
+            chart_bytes: Optional[bytes] = None
+            if len(candles) >= 10:
+                try:
+                    loop = asyncio.get_event_loop()
+                    chart_bytes = await loop.run_in_executor(
+                        None,
+                        lambda: generate_signal_chart(
+                            candles=candles,
+                            signal_type=signal.signal_type,
+                            entry_price=signal.entry_price,
+                            tp=signal.tp,
+                            sl=signal.sl,
+                            timeframe=signal.timeframe,
+                            signal_label='MANUAL',
+                            ema_period=Config.EMA_PERIOD,
+                            rsi_period=Config.RSI_PERIOD,
+                            adx_period=Config.ADX_PERIOD,
+                            adx_threshold=Config.ADX_THRESHOLD,
+                        )
+                    )
+                except Exception as chart_err:
+                    logger.warning(f"Manual chart generation failed: {chart_err}")
+
+            # Delete the "mencari sinyal..." placeholder, then send photo or text
+            await wait_msg.delete()
+            if chart_bytes:
+                await update.effective_message.reply_photo(
+                    photo=io.BytesIO(chart_bytes),
+                    caption=signal_text,
+                    parse_mode='Markdown',
+                    reply_markup=reply_markup
+                )
+            else:
+                await update.effective_message.reply_text(
+                    signal_text,
+                    parse_mode='Markdown',
+                    reply_markup=reply_markup
+                )
             
         else:
             await wait_msg.edit_text(f"""
@@ -590,37 +622,55 @@ Hubungi admin jika ada masalah.
             await query.edit_message_text("🗑️ Sinyal dihapus. Bot kembali mencari sinyal baru.")
             
     async def _on_new_signal(self, signal: Signal):
-        """Handle new signals from generator"""
+        """Handle new signals from generator — sends chart + caption"""
         try:
-            # Format signal message
-            signal_text = f"""
-🤖 *SINYAL OTOMATIS*
+            # Format signal message (used as photo caption, max 1024 chars)
+            signal_text = (
+                f"🤖 *SINYAL OTOMATIS*\n\n"
+                f"{'🟢 BUY' if signal.signal_type == 'BUY' else '🔴 SELL'} *XAUUSD*\n\n"
+                f"💰 *Entry:* ${signal.entry_price:.2f}\n"
+                f"🎯 *TP:* ${signal.tp:.2f}\n"
+                f"🛑 *SL:* ${signal.sl:.2f}\n\n"
+                f"📊 *Indikator:*\n"
+                f"• EMA {Config.EMA_PERIOD}: ${signal.ema_50:.2f}\n"
+                f"• RSI {Config.RSI_PERIOD}: {signal.rsi:.2f}\n"
+                f"• ADX {Config.ADX_PERIOD}: {signal.adx:.2f}\n\n"
+                f"⏰ *Timeframe:* {signal.timeframe}\n"
+                f"🕐 *Waktu:* {signal.timestamp.strftime('%Y-%m-%d %H:%M:%S')} WIB\n\n"
+                f"⚠️ *Risk Management:*\n"
+                f"R:R = 1:{Config.ATR_TP_MULT:.0f}  |  "
+                f"SL ${signal.sl:.2f} / TP ${signal.tp:.2f} (ATR-based)\n\n"
+                f"🔄 *Status:* Akan dipantau otomatis..."
+            )
 
-{'🟢 BUY' if signal.signal_type == 'BUY' else '🔴 SELL'} *XAUUSD*
+            # Generate chart once (blocking matplotlib — run in thread pool)
+            candles = self.ws_client.get_candles(signal.timeframe)
+            chart_bytes: Optional[bytes] = None
+            if len(candles) >= 10:
+                try:
+                    loop = asyncio.get_event_loop()
+                    chart_bytes = await loop.run_in_executor(
+                        None,
+                        lambda: generate_signal_chart(
+                            candles=candles,
+                            signal_type=signal.signal_type,
+                            entry_price=signal.entry_price,
+                            tp=signal.tp,
+                            sl=signal.sl,
+                            timeframe=signal.timeframe,
+                            signal_label='AUTO',
+                            ema_period=Config.EMA_PERIOD,
+                            rsi_period=Config.RSI_PERIOD,
+                            adx_period=Config.ADX_PERIOD,
+                            adx_threshold=Config.ADX_THRESHOLD,
+                        )
+                    )
+                except Exception as chart_err:
+                    logger.warning(f"Chart generation failed, falling back to text: {chart_err}")
 
-💰 *Entry:* ${signal.entry_price:.2f}
-🎯 *TP:* ${signal.tp:.2f}
-🛑 *SL:* ${signal.sl:.2f}
-
-📊 *Indikator:*
-• EMA 50: ${signal.ema_50:.2f}
-• RSI 3: {signal.rsi:.2f}
-• ADX 55: {signal.adx:.2f}
-
-⏰ *Timeframe:* {signal.timeframe}
-🕐 *Waktu:* {signal.timestamp.strftime('%Y-%m-%d %H:%M:%S')} WIB
-
-⚠️ *Risk Management:*
-Risk:Reward = 1:{Config.ATR_TP_MULT:.0f} (SL×{Config.ATR_SL_MULT} / TP×{Config.ATR_TP_MULT})
-Stop Loss: ${signal.sl:.2f} (ATR-based)
-Take Profit: ${signal.tp:.2f} (ATR-based)
-
-🔄 *Status:* Akan dipantau otomatis...
-            """
-            
             # Send to all active users
             active_users = self.user_manager.get_active_users()
-            
+
             for user_id in active_users:
                 try:
                     # Check if user already has an active position
@@ -639,17 +689,25 @@ Take Profit: ${signal.tp:.2f} (ATR-based)
                         timeframe=signal.timeframe,
                         is_manual=False
                     )
-                    
-                    # Send signal
-                    await self.app.bot.send_message(
-                        chat_id=user_id,
-                        text=signal_text,
-                        parse_mode='Markdown'
-                    )
-                    
+
+                    # Send chart + caption, or plain text if chart unavailable
+                    if chart_bytes:
+                        await self.app.bot.send_photo(
+                            chat_id=user_id,
+                            photo=io.BytesIO(chart_bytes),
+                            caption=signal_text,
+                            parse_mode='Markdown'
+                        )
+                    else:
+                        await self.app.bot.send_message(
+                            chat_id=user_id,
+                            text=signal_text,
+                            parse_mode='Markdown'
+                        )
+
                 except TelegramError as e:
                     logger.error(f"Failed to send signal to user {user_id}: {e}")
-                    
+
         except Exception as e:
             logger.error(f"Error handling new signal: {e}")
             

@@ -115,9 +115,10 @@ Logs: `logs/bot.log`
 
 ## Deployment
 
-- **Type:** VM (always-running) — required for WebSocket + Telegram polling 24/7
+- **Type:** Autoscale (free tier compatible)
 - **Run:** `python main.py`
-- **Port:** 8080 (health check at `/health`)
+- **Port:** 8080 (health check at `/health`, cron trigger at `/cron/tick`)
+- **Keep-alive:** Ping `https://<your-app>.replit.app/health` setiap 5 menit via cron job eksternal (cron-job.org / UptimeRobot / dll) supaya instance tidak sleep
 
 ## External Dependencies
 
